@@ -24,7 +24,11 @@
   1. App launches and displays a functional UI shell with navigation between pages
   2. App detects the current operating system (Windows or Linux) and adjusts behavior accordingly
   3. Technical errors encountered by the app are displayed as plain-language messages with suggested fixes
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 01-foundation-01-PLAN.md — Project scaffold (Tauri v2 + dependencies + capabilities)
+- [ ] 01-foundation-02-PLAN.md — UI shell + error infrastructure (sidebar, routing, AppError)
+- [ ] 01-foundation-03-PLAN.md — Platform detection + dashboard + error display
 
 ### Phase 2: Docker Integration
 **Goal**: App can reliably detect, health-check, and manage Docker on the current platform
@@ -93,7 +97,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 0/3 | Not started | - |
+| 1. Foundation | 0/3 | Planning complete | - |
 | 2. Docker Integration | 0/2 | Not started | - |
 | 3. Installation Engine | 0/6 | Not started | - |
 | 4. Configuration & Sandboxing | 0/12 | Not started | - |
