@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// Structured error type for all Tauri commands.
 ///
@@ -7,7 +7,19 @@ use serde::Serialize;
 #[derive(Debug, thiserror::Error, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum AppError {
-    #[error("Docker is not available: {suggestion}")]
+    #[error("Docker is not installed: {suggestion}")]
+    DockerNotInstalled { suggestion: String },
+
+    #[error("Docker daemon is not running: {suggestion}")]
+    DockerDaemonNotRunning { suggestion: String },
+
+    #[error("Docker Desktop is not running: {suggestion}")]
+    DockerDesktopNotRunning { suggestion: String },
+
+    #[error("WSL2 Docker backend is not ready: {suggestion}")]
+    WslBackendNotReady { suggestion: String },
+
+    #[error("Docker is unavailable: {suggestion}")]
     DockerUnavailable { suggestion: String },
 
     #[error("Installation failed: {reason}. {suggestion}")]
