@@ -26,6 +26,5 @@ src-tauri/target/
 *.sln
 *.sw?
 
-# GSD planning artifacts
+# GSD artifacts
 .opencode/
-.planning/

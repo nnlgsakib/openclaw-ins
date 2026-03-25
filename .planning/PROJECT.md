@@ -12,7 +12,9 @@ Make OpenClaw installable and manageable by anyone — from download to daily us
 
 ### Validated
 
-(None yet — ship to validate)
+- ✓ App works on Windows (including WSL/Docker path) — Phase 1
+- ✓ App works on Linux (native + Docker) — Phase 1
+- ✓ App translates technical errors into plain language with fix suggestions — Phase 1
 
 ### Active
 
@@ -77,4 +79,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-25 after initialization*
+*Last updated: 2026-03-25 after Phase 1: Foundation*
