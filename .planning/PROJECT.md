@@ -15,6 +15,8 @@ Make OpenClaw installable and manageable by anyone — from download to daily us
 - ✓ App works on Windows (including WSL/Docker path) — Phase 1
 - ✓ App works on Linux (native + Docker) — Phase 1
 - ✓ App translates technical errors into plain language with fix suggestions — Phase 1
+- ✓ App detects Docker availability and guides installation if missing — Phase 2
+- ✓ App handles Docker Desktop unavailability gracefully — Phase 2
 
 ### Active
 
@@ -25,8 +27,6 @@ Make OpenClaw installable and manageable by anyone — from download to daily us
 - [ ] User can monitor OpenClaw agent status and activity
 - [ ] User can update OpenClaw to newer versions
 - [ ] User can uninstall OpenClaw cleanly
-- [ ] App works on Windows (including WSL/Docker path)
-- [ ] App works on Linux (native + Docker)
 
 ### Out of Scope
 
@@ -79,4 +79,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-25 after Phase 1: Foundation*
+*Last updated: 2026-03-25 after Phase 2: Docker Integration*
