@@ -41,7 +41,7 @@ Plans:
   4. Docker health check runs before any Docker-dependent operation
 **Plans**: 2 plans
 Plans:
-- [ ] 02-docker-integration-01-PLAN.md — Docker backend (Rust types, detection, health check commands)
+- [x] 02-docker-integration-01-PLAN.md — Docker backend (Rust types, detection, health check commands)
 - [ ] 02-docker-integration-02-PLAN.md — Docker frontend (status hook, page UI, error messages)
 
 ### Phase 3: Installation Engine
