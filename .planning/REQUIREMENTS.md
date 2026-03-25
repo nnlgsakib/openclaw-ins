@@ -104,11 +104,17 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
+| PLAT-01 | Phase 1 | Pending |
+| PLAT-02 | Phase 1 | Pending |
+| ERR-01 | Phase 1 | Pending |
+| INST-03 | Phase 2 | Pending |
+| ERR-03 | Phase 2 | Pending |
 | INST-01 | Phase 3 | Pending |
 | INST-02 | Phase 3 | Pending |
-| INST-03 | Phase 3 | Pending |
 | INST-04 | Phase 3 | Pending |
 | INST-05 | Phase 3 | Pending |
+| PLAT-03 | Phase 3 | Pending |
+| ERR-02 | Phase 3 | Pending |
 | CONF-01 | Phase 4 | Pending |
 | CONF-02 | Phase 4 | Pending |
 | CONF-03 | Phase 4 | Pending |
@@ -120,7 +126,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SAND-03 | Phase 4 | Pending |
 | SAND-04 | Phase 4 | Pending |
 | SAND-05 | Phase 4 | Pending |
-| SAND-06 | Phase 2 | Pending |
+| SAND-06 | Phase 4 | Pending |
 | MON-01 | Phase 5 | Pending |
 | MON-02 | Phase 5 | Pending |
 | MON-03 | Phase 5 | Pending |
@@ -129,17 +135,19 @@ Which phases cover which requirements. Updated during roadmap creation.
 | LIFE-02 | Phase 6 | Pending |
 | LIFE-03 | Phase 6 | Pending |
 | LIFE-04 | Phase 6 | Pending |
-| ERR-01 | Phase 1 | Pending |
-| ERR-02 | Phase 3 | Pending |
-| ERR-03 | Phase 2 | Pending |
-| PLAT-01 | Phase 1 | Pending |
-| PLAT-02 | Phase 1 | Pending |
-| PLAT-03 | Phase 3 | Pending |
 
 **Coverage:**
 - v1 requirements: 31 total
 - Mapped to phases: 31
 - Unmapped: 0 ✓
+
+**Phase distribution:**
+- Phase 1: 3 requirements (PLAT-01, PLAT-02, ERR-01)
+- Phase 2: 2 requirements (INST-03, ERR-03)
+- Phase 3: 6 requirements (INST-01, INST-02, INST-04, INST-05, PLAT-03, ERR-02)
+- Phase 4: 12 requirements (CONF-01–06, SAND-01–06)
+- Phase 5: 4 requirements (MON-01–04)
+- Phase 6: 4 requirements (LIFE-01–04)
 
 ---
 *Requirements defined: 2026-03-25*
