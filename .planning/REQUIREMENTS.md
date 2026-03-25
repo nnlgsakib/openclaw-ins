@@ -11,7 +11,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [ ] **INST-01**: User can install OpenClaw via one-click Docker setup with system requirements pre-check
 - [ ] **INST-02**: User can install OpenClaw natively on their machine (without Docker)
-- [ ] **INST-03**: App detects Docker availability and guides installation if missing (Windows WSL path)
+- [x] **INST-03**: App detects Docker availability and guides installation if missing (Windows WSL path)
 - [ ] **INST-04**: App verifies installation succeeded by running a health check post-install
 - [ ] **INST-05**: App shows first-run onboarding (3-step: system check → install → ready)
 
@@ -51,7 +51,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [x] **ERR-01**: App translates technical errors into plain language with fix suggestions
 - [ ] **ERR-02**: App shows actionable error messages during install failures
-- [ ] **ERR-03**: App handles Docker Desktop unavailability gracefully
+- [x] **ERR-03**: App handles Docker Desktop unavailability gracefully
 
 ### Platform
 
@@ -107,8 +107,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PLAT-01 | Phase 1 | Complete |
 | PLAT-02 | Phase 1 | Complete |
 | ERR-01 | Phase 1 | Complete |
-| INST-03 | Phase 2 | Pending |
-| ERR-03 | Phase 2 | Pending |
+| INST-03 | Phase 2 | Complete |
+| ERR-03 | Phase 2 | Complete |
 | INST-01 | Phase 3 | Pending |
 | INST-02 | Phase 3 | Pending |
 | INST-04 | Phase 3 | Pending |

@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Ready to execute
-last_updated: "2026-03-25T09:08:20.276Z"
+status: Phase complete — ready for verification
+last_updated: "2026-03-25T09:28:26.198Z"
 progress:
   total_phases: 6
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 5
-  completed_plans: 4
+  completed_plans: 5
 ---
 
 # STATE: OpenClaw Desktop
@@ -21,7 +21,7 @@ progress:
 
 ## Current Position
 
-Phase: 02 (Docker Integration) — EXECUTING
+Phase: 02 (Docker Integration) — COMPLETE
 Plan: 2 of 2
 
 ## Performance Metrics
@@ -37,6 +37,7 @@ Plan: 2 of 2
 | Phase 01-foundation P03 | 23min | 3 tasks | 15 files |
 | Phase 01-foundation P02 | 18min | 2 tasks | 17 files |
 | Phase 02-docker-integration P01 | 8min | 2 tasks | 5 files |
+| Phase 02-docker-integration P02 | 4min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -60,6 +61,10 @@ Plan: 2 of 2
 - Docker detection: platform dispatch via std::env::consts::OS (socket on Linux, HTTP on Windows)
 - WSL2 backend detection via wsl -l -v subprocess parsing
 - DockerStatus as flat struct (not enum): frontend needs all fields simultaneously
+- Adaptive polling for Docker health: 30s when down, 5min when healthy
+- useDockerInfo disabled by default (enabled: false) to avoid unnecessary API calls
+- Switch component installed early (Phase 2) for sandbox toggle in Phase 4
+- Error pattern matching: specific Docker patterns before generic "docker" fallback
 
 ### Critical Pitfalls (from research)
 
@@ -77,6 +82,6 @@ Plan: 2 of 2
 
 ## Session Continuity
 
-**Last action:** Completed 02-docker-integration-01-PLAN.md (8min, 2 tasks, 5 files)
-**Next action:** Phase 02 has 1 more plan. Ready for 02-docker-integration-02 or verification.
-**Files to review:** `.planning/phases/02-docker-integration/02-docker-integration-01-SUMMARY.md`
+**Last action:** Completed 02-docker-integration-02-PLAN.md (4min, 2 tasks, 4 files)
+**Next action:** Phase 02 complete. Ready for Phase 03 planning or verification.
+**Files to review:** `.planning/phases/02-docker-integration/02-docker-integration-02-SUMMARY.md`
