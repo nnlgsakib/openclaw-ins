@@ -1,0 +1,38 @@
+@import "tailwindcss";
+
+/* Geist font stack */
+@theme {
+  --font-sans: "Geist", system-ui, -apple-system, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, monospace;
+  --sidebar-width: 13.75rem;
+
+  --color-background: var(--slate-50);
+  --color-foreground: var(--slate-900);
+  --color-card: var(--white);
+  --color-card-foreground: var(--slate-900);
+  --color-primary: var(--blue-600);
+  --color-primary-foreground: var(--white);
+  --color-secondary: var(--slate-100);
+  --color-secondary-foreground: var(--slate-900);
+  --color-muted: var(--slate-100);
+  --color-muted-foreground: var(--slate-500);
+  --color-accent: var(--slate-100);
+  --color-accent-foreground: var(--slate-900);
+  --color-destructive: var(--red-600);
+  --color-destructive-foreground: var(--white);
+  --color-border: var(--slate-200);
+  --color-input: var(--slate-200);
+  --color-ring: var(--blue-600);
+  --radius: 0.5rem;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+  }
+}
