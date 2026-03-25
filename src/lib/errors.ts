@@ -17,6 +17,25 @@ export const errorMessages: Record<string, AppError> = {
     message: "Docker is not available on this system.",
     suggestion: "Install Docker Desktop and make sure it's running. You can download it from docker.com.",
   },
+  docker_not_installed: {
+    message: "Docker is not installed on this system.",
+    suggestion:
+      "Download Docker Desktop from docker.com and install it. On Linux, you can also run: sudo apt install docker.io",
+  },
+  docker_daemon_not_running: {
+    message: "Docker is installed but not running.",
+    suggestion: "Start Docker Desktop (Windows) or run: sudo systemctl start docker (Linux)",
+  },
+  docker_desktop_not_running: {
+    message: "Docker Desktop is not running.",
+    suggestion:
+      "Open Docker Desktop from the Start menu and wait for it to show 'Docker Desktop is running'.",
+  },
+  wsl_backend_not_ready: {
+    message: "The WSL2 Docker backend is not ready.",
+    suggestion:
+      "Open Docker Desktop → Settings → Resources → WSL Integration and ensure your distro is enabled.",
+  },
   installation_failed: {
     message: "Installation could not be completed.",
     suggestion: "Check that you have enough disk space and admin permissions, then try again.",
@@ -92,6 +111,10 @@ function isAppError(error: unknown): error is AppError {
 
 function matchErrorPattern(message: string): AppError | null {
   const lower = message.toLowerCase()
+  if (lower.includes("docker") && lower.includes("not installed")) return errorMessages.docker_not_installed
+  if (lower.includes("docker") && lower.includes("daemon")) return errorMessages.docker_daemon_not_running
+  if (lower.includes("docker desktop")) return errorMessages.docker_desktop_not_running
+  if (lower.includes("wsl") || lower.includes("wsl2")) return errorMessages.wsl_backend_not_ready
   if (lower.includes("docker")) return errorMessages.docker_unavailable
   if (lower.includes("network") || lower.includes("fetch") || lower.includes("connection"))
     return errorMessages.network_error
