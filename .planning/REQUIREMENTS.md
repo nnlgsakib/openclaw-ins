@@ -49,14 +49,14 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Error Handling
 
-- [ ] **ERR-01**: App translates technical errors into plain language with fix suggestions
+- [x] **ERR-01**: App translates technical errors into plain language with fix suggestions
 - [ ] **ERR-02**: App shows actionable error messages during install failures
 - [ ] **ERR-03**: App handles Docker Desktop unavailability gracefully
 
 ### Platform
 
-- [ ] **PLAT-01**: App works on Windows (including WSL2/Docker Desktop path)
-- [ ] **PLAT-02**: App works on Linux (native + Docker)
+- [x] **PLAT-01**: App works on Windows (including WSL2/Docker Desktop path)
+- [x] **PLAT-02**: App works on Linux (native + Docker)
 - [ ] **PLAT-03**: App detects platform and adjusts install flow accordingly
 
 ## v2 Requirements
@@ -104,9 +104,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PLAT-01 | Phase 1 | Pending |
-| PLAT-02 | Phase 1 | Pending |
-| ERR-01 | Phase 1 | Pending |
+| PLAT-01 | Phase 1 | Complete |
+| PLAT-02 | Phase 1 | Complete |
+| ERR-01 | Phase 1 | Complete |
 | INST-03 | Phase 2 | Pending |
 | ERR-03 | Phase 2 | Pending |
 | INST-01 | Phase 3 | Pending |
