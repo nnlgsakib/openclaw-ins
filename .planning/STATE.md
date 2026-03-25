@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Ready to plan
-last_updated: "2026-03-25T09:36:35.773Z"
+status: Ready to execute
+last_updated: "2026-03-25T18:45:32.947Z"
 progress:
   total_phases: 6
   completed_phases: 2
-  total_plans: 5
-  completed_plans: 5
+  total_plans: 8
+  completed_plans: 6
 ---
 
 # STATE: OpenClaw Desktop
@@ -16,13 +16,13 @@ progress:
 ## Project Reference
 
 **Core Value:** Make OpenClaw installable and manageable by anyone — from download to daily use — without touching a terminal.
-**Current Focus:** Phase 02 — Docker Integration
+**Current Focus:** Phase 03 — installation-engine
 **Tech Stack:** Tauri v2 + React 19 + TypeScript + Tailwind v4 + shadcn/ui + bollard (Rust Docker client)
 
 ## Current Position
 
-Phase: 3
-Plan: Not started
+Phase: 03 (installation-engine) — EXECUTING
+Plan: 2 of 3
 
 ## Performance Metrics
 
@@ -38,6 +38,7 @@ Plan: Not started
 | Phase 01-foundation P02 | 18min | 2 tasks | 17 files |
 | Phase 02-docker-integration P01 | 8min | 2 tasks | 5 files |
 | Phase 02-docker-integration P02 | 4min | 2 tasks | 4 files |
+| Phase 03-installation-engine P01 | 8min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -65,6 +66,11 @@ Plan: Not started
 - useDockerInfo disabled by default (enabled: false) to avoid unnecessary API calls
 - Switch component installed early (Phase 2) for sandbox toggle in Phase 4
 - Error pattern matching: specific Docker patterns before generic "docker" fallback
+- Shared Docker check module (docker/check.rs) for cross-command reuse
+- SystemCheckResult flat struct with 8 fields (platform, docker, node, disk, RAM, port)
+- sysinfo 0.33 crate for disk/RAM checks in system check command
+- Onboarding state machine via Zustand: system_check → install → verify → ready → error
+- Predefined system check thresholds: 2GB disk, 2GB RAM minimum
 
 ### Critical Pitfalls (from research)
 
@@ -82,6 +88,6 @@ Plan: Not started
 
 ## Session Continuity
 
-**Last action:** Completed 02-docker-integration-02-PLAN.md (4min, 2 tasks, 4 files)
-**Next action:** Phase 02 complete. Ready for Phase 03 planning or verification.
-**Files to review:** `.planning/phases/02-docker-integration/02-docker-integration-02-SUMMARY.md`
+**Last action:** Completed 03-installation-engine-01-PLAN.md (8min, 2 tasks, 7 files)
+**Next action:** Execute 03-installation-engine-02 (installation orchestration: Docker and native install flows with progress tracking)
+**Files to review:** `.planning/phases/03-installation-engine/03-installation-engine-01-SUMMARY.md`

@@ -9,11 +9,11 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Installation
 
-- [ ] **INST-01**: User can install OpenClaw via one-click Docker setup with system requirements pre-check
-- [ ] **INST-02**: User can install OpenClaw natively on their machine (without Docker)
+- [x] **INST-01**: User can install OpenClaw via one-click Docker setup with system requirements pre-check
+- [x] **INST-02**: User can install OpenClaw natively on their machine (without Docker)
 - [x] **INST-03**: App detects Docker availability and guides installation if missing (Windows WSL path)
 - [ ] **INST-04**: App verifies installation succeeded by running a health check post-install
-- [ ] **INST-05**: App shows first-run onboarding (3-step: system check → install → ready)
+- [x] **INST-05**: App shows first-run onboarding (3-step: system check → install → ready)
 
 ### Configuration
 
@@ -50,14 +50,14 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Error Handling
 
 - [x] **ERR-01**: App translates technical errors into plain language with fix suggestions
-- [ ] **ERR-02**: App shows actionable error messages during install failures
+- [x] **ERR-02**: App shows actionable error messages during install failures
 - [x] **ERR-03**: App handles Docker Desktop unavailability gracefully
 
 ### Platform
 
 - [x] **PLAT-01**: App works on Windows (including WSL2/Docker Desktop path)
 - [x] **PLAT-02**: App works on Linux (native + Docker)
-- [ ] **PLAT-03**: App detects platform and adjusts install flow accordingly
+- [x] **PLAT-03**: App detects platform and adjusts install flow accordingly
 
 ## v2 Requirements
 
@@ -109,12 +109,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ERR-01 | Phase 1 | Complete |
 | INST-03 | Phase 2 | Complete |
 | ERR-03 | Phase 2 | Complete |
-| INST-01 | Phase 3 | Pending |
-| INST-02 | Phase 3 | Pending |
+| INST-01 | Phase 3 | Complete |
+| INST-02 | Phase 3 | Complete |
 | INST-04 | Phase 3 | Pending |
-| INST-05 | Phase 3 | Pending |
-| PLAT-03 | Phase 3 | Pending |
-| ERR-02 | Phase 3 | Pending |
+| INST-05 | Phase 3 | Complete |
+| PLAT-03 | Phase 3 | Complete |
+| ERR-02 | Phase 3 | Complete |
 | CONF-01 | Phase 4 | Pending |
 | CONF-02 | Phase 4 | Pending |
 | CONF-03 | Phase 4 | Pending |
