@@ -46,10 +46,9 @@ function getStepIcon(step: string) {
 const INSTALL_STEPS = [
   { key: "checking_docker", label: "Check Docker" },
   { key: "creating_dirs", label: "Create Dirs" },
-  { key: "pulling_image", label: "Pull Image" },
-  { key: "writing_compose", label: "Write Config" },
-  { key: "writing_env", label: "Generate Token" },
-  { key: "starting_gateway", label: "Start Gateway" },
+  { key: "pulling_image", label: "Clone Repo" },
+  { key: "writing_env", label: "Configure" },
+  { key: "starting_gateway", label: "Build & Start" },
   { key: "verifying", label: "Verify" },
   { key: "complete", label: "Done" },
 ];

@@ -143,9 +143,10 @@ Last activity: 2026-03-26
 | 260326-ude | Fix Rust compiler warnings in error.rs and native_install.rs | 2026-03-26 | a334dc8 | [260326-ude-fix-rust-compiler-warnings-in-error-rs-a](./quick/260326-ude-fix-rust-compiler-warnings-in-error-rs-a/) |
 | 260326-ugw | Fix installation state not persisting across page navigation | 2026-03-26 | 554bb96 | [260326-ugw-fix-installation-state-not-persisting-ac](./quick/260326-ugw-fix-installation-state-not-persisting-ac/) |
 | 260326-v0s | Improve Docker installation UX - progress display and log viewer | 2026-03-26 | ebbc8ff | [260326-v0s-improve-docker-installation-ux-progress-](./quick/260326-v0s-improve-docker-installation-ux-progress-/) |
+| 260326-vkw | Change Docker installation from image pull to git clone + docker compose | 2026-03-26 | pending | [260326-vkw-change-docker-installation-from-image-pu](./quick/260326-vkw-change-docker-installation-from-image-pu/) |
 
 ## Session Continuity
 
-**Last action:** Completed quick task 260326-v0s: Improve Docker installation UX
+**Last action:** Completed quick task 260326-vkw: Change Docker installation from image pull to git clone
 **Next action:** Plan Phase 08 (channel-management-core) — gather context or plan directly
 **Files to review:** `.planning/phases/07-installation-ux-animation-foundation/07-VERIFICATION.md`

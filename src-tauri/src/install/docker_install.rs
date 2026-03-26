@@ -5,9 +5,7 @@ use crate::install::progress::emit_progress;
 use crate::install::verify::verify_gateway_health;
 use serde::{Deserialize, Serialize};
 
-
-
-const OPENCLAW_IMAGE: &str = "ghcr.io/openclaw/openclaw:latest";
+const OPENCLAW_REPO: &str = "https://github.com/openclaw/openclaw.git";
 const GATEWAY_PORT: u16 = 18789;
 const BRIDGE_PORT: u16 = 18790;
 
@@ -17,6 +15,7 @@ const BRIDGE_PORT: u16 = 18790;
 /// individual layer download status.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)] // Still part of the IPC contract; emitted during image pull if needed
 pub struct DockerLayerProgressEvent {
     pub layer_id: String,
     pub description: String,
@@ -26,7 +25,7 @@ pub struct DockerLayerProgressEvent {
 
 /// Raw Docker log output event for the terminal viewer.
 ///
-/// Emitted during image pull and compose up to provide real-time
+/// Emitted during git clone and compose up to provide real-time
 /// log visibility in the DockerLogViewer component.
 #[derive(Debug, Clone, Serialize)]
 pub struct DockerLogEvent {
@@ -34,16 +33,15 @@ pub struct DockerLogEvent {
     pub timestamp: u64,
 }
 
-/// Docker Compose-based installation flow.
+/// Docker Compose-based installation flow (from source repo).
 ///
 /// Steps:
 /// 1. Check Docker availability
-/// 2. Create ~/.openclaw config and workspace directories
-/// 3. Pull the OpenClaw image via bollard
-/// 4. Write docker-compose.yml
-/// 5. Write .env with generated gateway token
-/// 6. Start gateway via docker compose up
-/// 7. Verify gateway health
+/// 2. Create ~/.openclaw config, workspace, and repo directories
+/// 3. Clone (or pull) the OpenClaw repository
+/// 4. Write .env with generated gateway token
+/// 5. Start gateway via docker compose up (from repo)
+/// 6. Verify gateway health
 pub async fn docker_install(app_handle: &tauri::AppHandle) -> Result<InstallResult, AppError> {
     // Step 1: Verify Docker is available
     emit_progress(
@@ -71,7 +69,7 @@ pub async fn docker_install(app_handle: &tauri::AppHandle) -> Result<InstallResu
     emit_progress(
         app_handle,
         "creating_dirs",
-        15,
+        10,
         "Creating configuration directories...",
     );
     let home = dirs::home_dir().ok_or_else(|| AppError::Internal {
@@ -80,6 +78,7 @@ pub async fn docker_install(app_handle: &tauri::AppHandle) -> Result<InstallResu
     })?;
     let config_dir = home.join(".openclaw");
     let workspace_dir = config_dir.join("workspace");
+    let repo_dir = config_dir.join("repo");
 
     tokio::fs::create_dir_all(&config_dir).await.map_err(|e| {
         AppError::InstallationFailed {
@@ -94,154 +93,82 @@ pub async fn docker_install(app_handle: &tauri::AppHandle) -> Result<InstallResu
             suggestion: "Check directory permissions for ~/.openclaw/workspace".into(),
         })?;
 
-    // Step 3: Pull OpenClaw image via bollard
-    emit_progress(
-        app_handle,
-        "pulling_image",
-        20,
-        "Downloading OpenClaw image...",
-    );
-    let docker = bollard::Docker::connect_with_socket_defaults().map_err(|e| {
-        AppError::DockerUnavailable {
-            suggestion: format!("Cannot connect to Docker socket: {e}"),
+    // Step 3: Clone or update the OpenClaw repository
+    if repo_dir.join(".git").exists() {
+        // Repo already exists — pull latest
+        emit_progress(
+            app_handle,
+            "pulling_image",
+            20,
+            "Updating OpenClaw repository...",
+        );
+        emit_log(app_handle, "Repository exists, pulling latest changes...");
+
+        let output = tokio::process::Command::new("git")
+            .args(["-C", repo_dir.to_str().unwrap(), "pull", "--ff-only"])
+            .output()
+            .await
+            .map_err(|e| AppError::InstallationFailed {
+                reason: format!("Failed to run git pull: {e}"),
+                suggestion: "Ensure git is installed and on your PATH".into(),
+            })?;
+
+        emit_log_lines(app_handle, &output.stdout);
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            emit_log(app_handle, &format!("git pull warning: {stderr}"));
         }
-    })?;
+    } else {
+        // Fresh clone
+        emit_progress(
+            app_handle,
+            "pulling_image",
+            20,
+            "Cloning OpenClaw repository...",
+        );
+        emit_log(app_handle, &format!("Cloning from {OPENCLAW_REPO}..."));
 
-    use futures_util::StreamExt;
-    let mut stream = docker.create_image(
-        Some(bollard::query_parameters::CreateImageOptions {
-            from_image: Some("ghcr.io/openclaw/openclaw".to_string()),
-            tag: Some("latest".to_string()),
-            ..Default::default()
-        }),
-        None,
-        None,
-    );
+        let output = tokio::process::Command::new("git")
+            .args([
+                "clone",
+                "--progress",
+                OPENCLAW_REPO,
+                repo_dir.to_str().unwrap(),
+            ])
+            .output()
+            .await
+            .map_err(|e| AppError::InstallationFailed {
+                reason: format!("Failed to run git clone: {e}"),
+                suggestion: "Ensure git is installed and on your PATH".into(),
+            })?;
 
-    while let Some(result) = stream.next().await {
-        match result {
-            Ok(info) => {
-                if let Some(status) = &info.status {
-                    // Map pull progress to 20-70% range
-                    let detail = info
-                        .progress_detail
-                        .as_ref()
-                        .and_then(|d| d.current)
-                        .unwrap_or(0) as u64;
-                    let total = info
-                        .progress_detail
-                        .as_ref()
-                        .and_then(|d| d.total)
-                        .unwrap_or(1) as u64;
-                    let pull_percent = if total > 0 {
-                        ((detail as f64 / total as f64) * 50.0) as u8
-                    } else {
-                        0
-                    };
-                    let percent = 20 + pull_percent.min(50);
-                    emit_progress(
-                        app_handle,
-                        "pulling_image",
-                        percent,
-                        &format!("{status}..."),
-                    );
+        // git clone outputs progress to stderr
+        emit_log_lines(app_handle, &output.stderr);
+        emit_log_lines(app_handle, &output.stdout);
 
-                    // Calculate per-layer download percentage
-                    let layer_pct = if total > 0 {
-                        ((detail as f64 / total as f64) * 100.0) as u8
-                    } else {
-                        0
-                    };
-
-                    // Emit per-layer progress event for granular visibility
-                    if let Some(layer_id) = info.id.as_ref().and_then(|id| {
-                        if id.len() >= 12 {
-                            Some(id.chars().take(12).collect::<String>())
-                        } else {
-                            Some(id.clone())
-                        }
-                    }) {
-                        let _ = tauri::Emitter::emit(
-                            app_handle,
-                            "docker-layer-progress",
-                            DockerLayerProgressEvent {
-                                layer_id,
-                                description: status.to_string(),
-                                percentage: pull_percent.min(50),
-                                layer_percentage: layer_pct.min(100),
-                            },
-                        );
-                    }
-
-                    // Only emit log output for meaningful status transitions,
-                    // not the repetitive "Downloading" ticks
-                    let is_meaningful = matches!(
-                        status.as_str(),
-                        "Verifying Checksum"
-                            | "Download complete"
-                            | "Extracting"
-                            | "Pull complete"
-                            | "Already exists"
-                    );
-                    if is_meaningful {
-                        let _ = tauri::Emitter::emit(
-                            app_handle,
-                            "docker-log-output",
-                            DockerLogEvent {
-                                output: if let Some(id) = &info.id {
-                                    let short_id: String =
-                                        id.chars().take(8).collect();
-                                    format!("[{short_id}] {status}")
-                                } else {
-                                    status.clone()
-                                },
-                                timestamp: std::time::SystemTime::now()
-                                    .duration_since(std::time::UNIX_EPOCH)
-                                    .unwrap_or_default()
-                                    .as_millis() as u64,
-                            },
-                        );
-                    }
-                }
-            }
-            Err(e) => {
-                return Err(AppError::InstallationFailed {
-                    reason: format!("Image pull failed: {e}"),
-                    suggestion: "Check your internet connection and Docker Hub access. \
-                                 Try: docker pull ghcr.io/openclaw/openclaw:latest"
-                        .into(),
-                });
-            }
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(AppError::InstallationFailed {
+                reason: format!("git clone failed: {stderr}"),
+                suggestion: "Check your internet connection. Ensure git is installed.".into(),
+            });
         }
+
+        emit_log(app_handle, "Repository cloned successfully.");
     }
 
-    // Step 4: Write docker-compose.yml
-    emit_progress(
-        app_handle,
-        "writing_compose",
-        75,
-        "Configuring Docker services...",
-    );
-    let compose_content = generate_compose_yaml();
-    let compose_path = config_dir.join("docker-compose.yml");
-    tokio::fs::write(&compose_path, compose_content)
-        .await
-        .map_err(|e| AppError::InstallationFailed {
-            reason: format!("Failed to write compose file: {e}"),
-            suggestion: "Check write permissions for ~/.openclaw".into(),
-        })?;
+    emit_progress(app_handle, "pulling_image", 50, "Repository ready.");
 
-    // Step 5: Write .env file with generated gateway token
+    // Step 4: Write .env file with generated gateway token
     emit_progress(
         app_handle,
         "writing_env",
-        80,
-        "Generating gateway token...",
+        55,
+        "Generating gateway configuration...",
     );
     let gateway_token = generate_token();
     let env_content = format!(
-        "OPENCLAW_IMAGE={OPENCLAW_IMAGE}\n\
-         OPENCLAW_GATEWAY_TOKEN={gateway_token}\n\
+        "OPENCLAW_GATEWAY_TOKEN={gateway_token}\n\
          OPENCLAW_GATEWAY_PORT={GATEWAY_PORT}\n\
          OPENCLAW_BRIDGE_PORT={BRIDGE_PORT}\n\
          OPENCLAW_CONFIG_DIR={}\n\
@@ -249,77 +176,60 @@ pub async fn docker_install(app_handle: &tauri::AppHandle) -> Result<InstallResu
         config_dir.display(),
         workspace_dir.display(),
     );
-    tokio::fs::write(config_dir.join(".env"), env_content)
+    let env_path = repo_dir.join(".env");
+    tokio::fs::write(&env_path, env_content)
         .await
         .map_err(|e| AppError::InstallationFailed {
             reason: format!("Failed to write .env file: {e}"),
-            suggestion: "Check write permissions for ~/.openclaw".into(),
+            suggestion: "Check write permissions for ~/.openclaw/repo".into(),
         })?;
 
-    // Step 6: Start gateway via docker compose up
+    emit_log(app_handle, &format!(".env written to {}", env_path.display()));
+
+    // Step 5: Build and start via docker compose up
     emit_progress(
         app_handle,
         "starting_gateway",
-        85,
-        "Starting OpenClaw gateway...",
+        65,
+        "Building and starting OpenClaw...",
     );
+    emit_log(app_handle, "Running docker compose up --build -d...");
+
     let output = tokio::process::Command::new("docker")
-        .args([
-            "compose",
-            "-f",
-            compose_path.to_str().unwrap(),
-            "up",
-            "-d",
-            "openclaw-gateway",
-        ])
+        .args(["compose", "up", "--build", "-d"])
+        .current_dir(&repo_dir)
         .output()
         .await
         .map_err(|e| AppError::InstallationFailed {
             reason: format!("Failed to run docker compose: {e}"),
-            suggestion: "Ensure 'docker compose' (v2) is available. Run: docker compose version".into(),
+            suggestion:
+                "Ensure 'docker compose' (v2) is available. Run: docker compose version".into(),
         })?;
 
     // Emit compose stdout as log output
     let stdout_str = String::from_utf8_lossy(&output.stdout);
     if !stdout_str.trim().is_empty() {
-        let _ = tauri::Emitter::emit(
-            app_handle,
-            "docker-log-output",
-            DockerLogEvent {
-                output: format!("compose: {}", stdout_str.trim()),
-                timestamp: std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap_or_default()
-                    .as_millis() as u64,
-            },
-        );
+        emit_log(app_handle, &format!("compose: {}", stdout_str.trim()));
     }
 
     // Emit compose stderr as log output (errors visible in log viewer)
     let stderr_str = String::from_utf8_lossy(&output.stderr);
     if !stderr_str.trim().is_empty() {
-        let _ = tauri::Emitter::emit(
-            app_handle,
-            "docker-log-output",
-            DockerLogEvent {
-                output: format!("compose-err: {}", stderr_str.trim()),
-                timestamp: std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap_or_default()
-                    .as_millis() as u64,
-            },
-        );
+        emit_log(app_handle, &format!("compose-err: {}", stderr_str.trim()));
     }
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         return Err(AppError::InstallationFailed {
             reason: format!("docker compose up failed: {stderr}"),
-            suggestion: "Check Docker logs: docker compose logs openclaw-gateway".into(),
+            suggestion: "Check Docker logs: cd ~/.openclaw/repo && docker compose logs".into(),
         });
     }
 
-    // Step 7: Verify gateway is healthy
+    emit_log(app_handle, "Docker compose started successfully.");
+    emit_progress(app_handle, "starting_gateway", 85, "Services started.");
+
+    // Step 6: Verify gateway is healthy
     emit_progress(
         app_handle,
         "verifying",
@@ -343,45 +253,30 @@ pub async fn docker_install(app_handle: &tauri::AppHandle) -> Result<InstallResu
     })
 }
 
-/// Generate the embedded docker-compose.yml content.
-///
-/// Uses the official OpenClaw compose structure with env var substitution.
-fn generate_compose_yaml() -> String {
-    r#"services:
-  openclaw-gateway:
-    image: ${OPENCLAW_IMAGE:-ghcr.io/openclaw/openclaw:latest}
-    container_name: openclaw-gateway
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:${OPENCLAW_GATEWAY_PORT:-18789}:18789"
-      - "${OPENCLAW_BRIDGE_PORT:-18790}:18790"
-    environment:
-      HOME: /home/node
-      TERM: xterm-256color
-      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN}
-    volumes:
-      - ${OPENCLAW_CONFIG_DIR:-~/.openclaw}:/home/node/.openclaw
-      - ${OPENCLAW_WORKSPACE_DIR:-~/.openclaw/workspace}:/home/node/.openclaw/workspace
-    healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:18789/healthz').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+/// Emit a single log line to the DockerLogViewer.
+fn emit_log(app_handle: &tauri::AppHandle, message: &str) {
+    let _ = tauri::Emitter::emit(
+        app_handle,
+        "docker-log-output",
+        DockerLogEvent {
+            output: message.to_string(),
+            timestamp: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis() as u64,
+        },
+    );
+}
 
-  openclaw-cli:
-    image: ${OPENCLAW_IMAGE:-ghcr.io/openclaw/openclaw:latest}
-    container_name: openclaw-cli
-    network_mode: "service:openclaw-gateway"
-    cap_drop:
-      - NET_RAW
-      - NET_ADMIN
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - ${OPENCLAW_CONFIG_DIR:-~/.openclaw}:/home/node/.openclaw
-      - ${OPENCLAW_WORKSPACE_DIR:-~/.openclaw/workspace}:/home/node/.openclaw/workspace
-"#
-    .to_string()
+/// Emit each line of command output as a separate log event.
+fn emit_log_lines(app_handle: &tauri::AppHandle, output: &[u8]) {
+    let text = String::from_utf8_lossy(output);
+    for line in text.lines() {
+        let trimmed = line.trim();
+        if !trimmed.is_empty() {
+            emit_log(app_handle, trimmed);
+        }
+    }
 }
 
 /// Generate a cryptographically random gateway token (64 hex chars = 256 bits).
@@ -407,15 +302,6 @@ fn generate_token() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn generate_compose_yaml_contains_services() {
-        let yaml = generate_compose_yaml();
-        assert!(yaml.contains("openclaw-gateway"));
-        assert!(yaml.contains("openclaw-cli"));
-        assert!(yaml.contains("OPENCLAW_IMAGE"));
-        assert!(yaml.contains("OPENCLAW_GATEWAY_TOKEN"));
-    }
 
     #[test]
     fn generate_token_returns_64_hex_chars() {
