@@ -46,6 +46,9 @@ pub fn run() {
             commands::channels::get_whatsapp_qr,
             commands::channels::validate_telegram_token,
             commands::channels::validate_discord_token,
+            commands::channels::get_contacts,
+            commands::channels::update_contact_status,
+            commands::channels::get_activity,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

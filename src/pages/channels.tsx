@@ -2,9 +2,14 @@ import { useState } from "react"
 import {
   useChannels,
   useDisconnectChannel,
+  useContacts,
+  useUpdateContactStatus,
+  useActivity,
   type ChannelInfo,
   type ChannelStatus,
   type ChannelType,
+  type Contact,
+  type ContactStatus,
 } from "@/hooks/use-channels"
 import { useOpenClawStatus } from "@/hooks/use-monitoring"
 import {
@@ -27,6 +32,11 @@ import {
   HelpCircle,
   Loader2,
   ExternalLink,
+  Users,
+  Activity,
+  ShieldCheck,
+  ShieldX,
+  ShieldAlert,
 } from "lucide-react"
 import { useQueryClient } from "@tanstack/react-query"
 import { Link } from "react-router-dom"
@@ -39,17 +49,26 @@ const CHANNEL_ICONS: Record<ChannelType, string> = {
   slack: "💬",
 }
 
+type Tab = "channels" | "contacts" | "activity"
+
 export function Channels() {
   const { data: channels, isLoading: channelsLoading } = useChannels()
   const { data: status, isLoading: statusLoading } = useOpenClawStatus()
   const queryClient = useQueryClient()
   const [pairingChannel, setPairingChannel] = useState<ChannelInfo | null>(null)
+  const [activeTab, setActiveTab] = useState<Tab>("channels")
 
   const isRunning = status?.state === "running"
   const isLoading = channelsLoading || statusLoading
 
   const handleRefresh = () => {
     queryClient.invalidateQueries({ queryKey: ["channels"] })
+    if (activeTab === "contacts") {
+      queryClient.invalidateQueries({ queryKey: ["channels", "contacts"] })
+    }
+    if (activeTab === "activity") {
+      queryClient.invalidateQueries({ queryKey: ["channels", "activity"] })
+    }
   }
 
   return (
@@ -59,7 +78,7 @@ export function Channels() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Channels</h1>
           <p className="text-muted-foreground">
-            Manage messaging channel connections
+            Manage messaging channels, contacts, and activity
           </p>
         </div>
         <Button
@@ -93,7 +112,65 @@ export function Channels() {
         </Alert>
       )}
 
-      {/* Channel Cards */}
+      {/* Tabs */}
+      <div className="flex gap-1 border-b">
+        <TabButton
+          active={activeTab === "channels"}
+          onClick={() => setActiveTab("channels")}
+          icon={<MessageSquare className="h-4 w-4" />}
+          label="Channels"
+        />
+        <TabButton
+          active={activeTab === "contacts"}
+          onClick={() => setActiveTab("contacts")}
+          icon={<Users className="h-4 w-4" />}
+          label="Contacts"
+        />
+        <TabButton
+          active={activeTab === "activity"}
+          onClick={() => setActiveTab("activity")}
+          icon={<Activity className="h-4 w-4" />}
+          label="Activity"
+        />
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === "channels" && (
+        <ChannelsTab
+          channels={channels}
+          isLoading={isLoading}
+          onConnect={(channel) => setPairingChannel(channel)}
+        />
+      )}
+      {activeTab === "contacts" && <ContactsTab />}
+      {activeTab === "activity" && <ActivityTab />}
+
+      {/* Pairing Modal */}
+      <PairingModal
+        open={!!pairingChannel}
+        onOpenChange={(open) => !open && setPairingChannel(null)}
+        channel={pairingChannel}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ["channels"] })
+        }}
+      />
+    </div>
+  )
+}
+
+// ─── Tab Components ──────────────────────────────────────────────
+
+function ChannelsTab({
+  channels,
+  isLoading,
+  onConnect,
+}: {
+  channels: ChannelInfo[] | undefined
+  isLoading: boolean
+  onConnect: (channel: ChannelInfo) => void
+}) {
+  return (
+    <>
       <div className="grid gap-4 sm:grid-cols-2">
         {isLoading &&
           Array.from({ length: 4 }).map((_, i) => (
@@ -118,12 +195,11 @@ export function Channels() {
             <ChannelCard
               key={channel.id}
               channel={channel}
-              onConnect={() => setPairingChannel(channel)}
+              onConnect={() => onConnect(channel)}
             />
           ))}
       </div>
 
-      {/* Empty state */}
       {!isLoading && channels?.length === 0 && (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
@@ -134,21 +210,148 @@ export function Channels() {
           </CardContent>
         </Card>
       )}
+    </>
+  )
+}
 
-      {/* Pairing Modal */}
-      <PairingModal
-        open={!!pairingChannel}
-        onOpenChange={(open) => !open && setPairingChannel(null)}
-        channel={pairingChannel}
-        onSuccess={() => {
-          queryClient.invalidateQueries({ queryKey: ["channels"] })
-        }}
-      />
+function ContactsTab() {
+  const { data: contacts, isLoading } = useContacts()
+
+  const pendingCount = contacts?.filter((c) => c.status === "pending").length ?? 0
+
+  return (
+    <div className="space-y-4">
+      {pendingCount > 0 && (
+        <Alert>
+          <ShieldAlert className="h-4 w-4" />
+          <AlertTitle>Pending Approval</AlertTitle>
+          <AlertDescription>
+            {pendingCount} contact{pendingCount > 1 ? "s" : ""} waiting for
+            your approval.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {isLoading && (
+        <div className="space-y-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Card key={i}>
+              <CardContent className="flex items-center justify-between py-4">
+                <div className="flex items-center gap-3">
+                  <Skeleton className="h-8 w-8 rounded-full" />
+                  <div className="space-y-1">
+                    <Skeleton className="h-4 w-28" />
+                    <Skeleton className="h-3 w-20" />
+                  </div>
+                </div>
+                <Skeleton className="h-8 w-24" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {!isLoading && contacts?.length === 0 && (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <Users className="h-12 w-12 text-muted-foreground mb-4" />
+            <p className="text-sm text-muted-foreground">No contacts yet</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Contacts appear when someone messages your agent for the first time
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {!isLoading &&
+        contacts?.map((contact) => (
+          <ContactCard key={contact.id} contact={contact} />
+        ))}
+    </div>
+  )
+}
+
+function ActivityTab() {
+  const { data: activity, isLoading } = useActivity()
+
+  return (
+    <div className="space-y-3">
+      {isLoading &&
+        Array.from({ length: 5 }).map((_, i) => (
+          <Card key={i}>
+            <CardContent className="flex items-center gap-3 py-3">
+              <Skeleton className="h-8 w-8 rounded-full" />
+              <div className="flex-1 space-y-1">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-3 w-48" />
+              </div>
+              <Skeleton className="h-3 w-16" />
+            </CardContent>
+          </Card>
+        ))}
+
+      {!isLoading && activity?.length === 0 && (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <Activity className="h-12 w-12 text-muted-foreground mb-4" />
+            <p className="text-sm text-muted-foreground">No recent activity</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Messages from your channels will appear here
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {!isLoading &&
+        activity?.map((entry) => (
+          <Card key={entry.id}>
+            <CardContent className="flex items-center gap-3 py-3">
+              <span className="text-lg">
+                {CHANNEL_ICONS[entry.channelType]}
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{entry.sender}</p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {entry.preview}
+                </p>
+              </div>
+              <span className="text-xs text-muted-foreground shrink-0">
+                {formatRelativeTime(entry.timestamp)}
+              </span>
+            </CardContent>
+          </Card>
+        ))}
     </div>
   )
 }
 
 // ─── Internal Components ───────────────────────────────────────────
+
+function TabButton({
+  active,
+  onClick,
+  icon,
+  label,
+}: {
+  active: boolean
+  onClick: () => void
+  icon: React.ReactNode
+  label: string
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+        active
+          ? "border-blue-600 text-blue-700"
+          : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
+      }`}
+    >
+      {icon}
+      {label}
+    </button>
+  )
+}
 
 function ChannelCard({
   channel,
@@ -249,6 +452,83 @@ function ChannelCard({
   )
 }
 
+function ContactCard({ contact }: { contact: Contact }) {
+  const updateMutation = useUpdateContactStatus()
+
+  const handleAction = (newStatus: string, successMessage: string) => {
+    updateMutation.mutate(
+      { contactId: contact.id, newStatus },
+      {
+        onSuccess: () => toast.success(successMessage),
+        onError: () => toast.error("Failed to update contact"),
+      }
+    )
+  }
+
+  return (
+    <Card>
+      <CardContent className="flex items-center justify-between py-4">
+        <div className="flex items-center gap-3">
+          <span className="text-lg">{CHANNEL_ICONS[contact.channelType]}</span>
+          <div>
+            <p className="text-sm font-medium">{contact.name}</p>
+            <p className="text-xs text-muted-foreground">
+              {contact.lastMessageAt
+                ? `Last message: ${formatRelativeTime(contact.lastMessageAt)}`
+                : "No messages yet"}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <ContactStatusBadge status={contact.status} />
+          {contact.status === "pending" && (
+            <div className="flex gap-1">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleAction("approved", `${contact.name} approved`)}
+                disabled={updateMutation.isPending}
+              >
+                <ShieldCheck className="h-4 w-4" />
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleAction("blocked", `${contact.name} blocked`)}
+                disabled={updateMutation.isPending}
+              >
+                <ShieldX className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+          {contact.status === "approved" && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => handleAction("blocked", `${contact.name} blocked`)}
+              disabled={updateMutation.isPending}
+            >
+              Block
+            </Button>
+          )}
+          {contact.status === "blocked" && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() =>
+                handleAction("approved", `${contact.name} unblocked`)
+              }
+              disabled={updateMutation.isPending}
+            >
+              Unblock
+            </Button>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
 function ChannelStatusBadge({ status }: { status: ChannelStatus }) {
   switch (status) {
     case "connected":
@@ -294,6 +574,40 @@ function ChannelStatusBadge({ status }: { status: ChannelStatus }) {
           Unknown
         </Badge>
       )
+  }
+}
+
+function ContactStatusBadge({ status }: { status: ContactStatus }) {
+  switch (status) {
+    case "approved":
+      return (
+        <Badge
+          variant="default"
+          className="bg-green-600 hover:bg-green-700"
+        >
+          <ShieldCheck className="mr-1 h-3 w-3" />
+          Approved
+        </Badge>
+      )
+    case "pending":
+      return (
+        <Badge
+          variant="outline"
+          className="text-yellow-600 border-yellow-600"
+        >
+          <ShieldAlert className="mr-1 h-3 w-3" />
+          Pending
+        </Badge>
+      )
+    case "blocked":
+      return (
+        <Badge variant="destructive">
+          <ShieldX className="mr-1 h-3 w-3" />
+          Blocked
+        </Badge>
+      )
+    default:
+      return <Badge variant="secondary">{status}</Badge>
   }
 }
 

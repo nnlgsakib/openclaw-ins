@@ -54,6 +54,37 @@ pub struct WhatsAppQrData {
     pub expires_at: Option<String>,
 }
 
+/// Contact status for access control.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub enum ContactStatus {
+    Approved,
+    Pending,
+    Blocked,
+}
+
+/// A contact who can message the agent.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Contact {
+    pub id: String,
+    pub name: String,
+    pub channel_type: ChannelType,
+    pub status: ContactStatus,
+    pub last_message_at: Option<String>,
+}
+
+/// A message activity entry.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ActivityEntry {
+    pub id: String,
+    pub sender: String,
+    pub channel_type: ChannelType,
+    pub preview: String,
+    pub timestamp: String,
+}
+
 // ─── Commands ─────────────────────────────────────────────────────
 
 /// Fetch all available channels from OpenClaw.
@@ -340,6 +371,116 @@ pub async fn validate_discord_token(token: String) -> Result<TokenValidationResu
             valid: false,
             message: "Could not reach OpenClaw API. Ensure OpenClaw is running.".into(),
         }),
+    }
+}
+
+/// Fetch all contacts from OpenClaw.
+///
+/// Returns contacts with their approval status.
+/// Returns empty Vec if OpenClaw is not running.
+#[tauri::command]
+pub async fn get_contacts() -> Result<Vec<Contact>, AppError> {
+    let status = get_openclaw_status().await?;
+
+    let port = match status {
+        OpenClawStatus::Running { port, .. } => port,
+        _ => return Ok(vec![]),
+    };
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(5))
+        .build()
+        .map_err(|e| AppError::Internal {
+            message: format!("Failed to build HTTP client: {}", e),
+            suggestion: "This is an internal error. Please report it.".into(),
+        })?;
+
+    let url = format!("http://localhost:{}/api/contacts", port);
+
+    match client.get(&url).send().await {
+        Ok(resp) => match resp.json::<Vec<Contact>>().await {
+            Ok(contacts) => Ok(contacts),
+            Err(_) => Ok(vec![]),
+        },
+        Err(_) => Ok(vec![]),
+    }
+}
+
+/// Update a contact's status (approve, deny, block, unblock).
+#[tauri::command]
+pub async fn update_contact_status(
+    contact_id: String,
+    new_status: String,
+) -> Result<Contact, AppError> {
+    let status = get_openclaw_status().await?;
+
+    let port = match status {
+        OpenClawStatus::Running { port, .. } => port,
+        _ => return Err(AppError::Internal {
+            message: "OpenClaw is not running".into(),
+            suggestion: "Start OpenClaw before managing contacts.".into(),
+        }),
+    };
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(5))
+        .build()
+        .map_err(|e| AppError::Internal {
+            message: format!("Failed to build HTTP client: {}", e),
+            suggestion: "This is an internal error. Please report it.".into(),
+        })?;
+
+    let url = format!("http://localhost:{}/api/contacts/{}/status", port, contact_id);
+
+    match client
+        .put(&url)
+        .json(&serde_json::json!({ "status": new_status }))
+        .send()
+        .await
+    {
+        Ok(resp) => match resp.json::<Contact>().await {
+            Ok(contact) => Ok(contact),
+            Err(_) => Err(AppError::Internal {
+                message: "Failed to parse contact response".into(),
+                suggestion: "Try again. If the problem persists, check OpenClaw logs.".into(),
+            }),
+        },
+        Err(e) => Err(AppError::Internal {
+            message: format!("Failed to update contact: {}", e),
+            suggestion: "Check that OpenClaw is running and try again.".into(),
+        }),
+    }
+}
+
+/// Fetch recent message activity from OpenClaw.
+///
+/// Returns activity entries across all channels.
+/// Returns empty Vec if OpenClaw is not running.
+#[tauri::command]
+pub async fn get_activity() -> Result<Vec<ActivityEntry>, AppError> {
+    let status = get_openclaw_status().await?;
+
+    let port = match status {
+        OpenClawStatus::Running { port, .. } => port,
+        _ => return Ok(vec![]),
+    };
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(5))
+        .build()
+        .map_err(|e| AppError::Internal {
+            message: format!("Failed to build HTTP client: {}", e),
+            suggestion: "This is an internal error. Please report it.".into(),
+        })?;
+
+    let url = format!("http://localhost:{}/api/activity", port);
+
+    match client.get(&url).send().await {
+        Ok(resp) => match resp.json::<Vec<ActivityEntry>>().await {
+            Ok(entries) => Ok(entries),
+            Err(_) => Ok(vec![]),
+        },
+        Err(_) => Ok(vec![]),
     }
 }
 

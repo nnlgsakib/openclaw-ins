@@ -25,6 +25,24 @@ export interface TokenValidationResult {
   message: string
 }
 
+export type ContactStatus = "approved" | "pending" | "blocked"
+
+export interface Contact {
+  id: string
+  name: string
+  channelType: ChannelType
+  status: ContactStatus
+  lastMessageAt: string | null
+}
+
+export interface ActivityEntry {
+  id: string
+  sender: string
+  channelType: ChannelType
+  preview: string
+  timestamp: string
+}
+
 // ─── Hooks ────────────────────────────────────────────────────────
 
 /**
@@ -120,5 +138,61 @@ export function useValidateDiscordToken() {
     mutationFn: async (token: string) => {
       return await invoke<TokenValidationResult>("validate_discord_token", { token })
     },
+  })
+}
+
+/**
+ * Fetches all contacts from OpenClaw.
+ * Polls every 60s for contact status updates.
+ */
+export function useContacts() {
+  return useQuery<Contact[]>({
+    queryKey: ["channels", "contacts"],
+    queryFn: async () => {
+      return await invoke<Contact[]>("get_contacts")
+    },
+    refetchInterval: 60_000,
+    retry: 1,
+  })
+}
+
+/**
+ * Update a contact's status (approve, deny, block, unblock).
+ * Invalidates contacts query on success.
+ */
+export function useUpdateContactStatus() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({
+      contactId,
+      newStatus,
+    }: {
+      contactId: string
+      newStatus: string
+    }) => {
+      return await invoke<Contact>("update_contact_status", {
+        contactId,
+        newStatus,
+      })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["channels", "contacts"] })
+    },
+  })
+}
+
+/**
+ * Fetches recent message activity from OpenClaw.
+ * Polls every 30s for new activity.
+ */
+export function useActivity() {
+  return useQuery<ActivityEntry[]>({
+    queryKey: ["channels", "activity"],
+    queryFn: async () => {
+      return await invoke<ActivityEntry[]>("get_activity")
+    },
+    refetchInterval: 30_000,
+    retry: 1,
   })
 }
