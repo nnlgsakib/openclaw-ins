@@ -2,6 +2,7 @@ import {
   useOpenClawStatus,
   useAgentSessions,
   useSandboxContainers,
+  useContainerLogs,
 } from "@/hooks/use-monitoring"
 import {
   Card,
@@ -23,6 +24,7 @@ import {
   Terminal,
   HelpCircle,
   ExternalLink,
+  Loader2,
 } from "lucide-react"
 import { useQueryClient } from "@tanstack/react-query"
 import { Link } from "react-router-dom"
@@ -35,6 +37,11 @@ export function Monitor() {
   const queryClient = useQueryClient()
 
   const isRunning = status?.state === "running"
+
+  const { data: containerLogs, isLoading: logsLoading } = useContainerLogs(
+    containers?.[0]?.id ?? "",
+    isRunning,
+  )
 
   const handleRefresh = () => {
     queryClient.invalidateQueries({ queryKey: ["monitoring"] })
@@ -222,12 +229,22 @@ export function Monitor() {
                 >
                   Live
                 </Badge>
-                <span className="text-xs text-muted-foreground">
-                  Log streaming coming soon
-                </span>
+                {logsLoading && (
+                  <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                )}
               </div>
               <div className="rounded-md bg-muted p-4 font-mono text-xs text-muted-foreground max-h-64 overflow-y-auto">
-                <p>Waiting for log streaming backend...</p>
+                {containerLogs ? (
+                  containerLogs.split("\n").map((line, i) => (
+                    <p key={i} className="whitespace-pre-wrap">
+                      {line || "\u00A0"}
+                    </p>
+                  ))
+                ) : (
+                  <p className="text-muted-foreground italic">
+                    No log output yet...
+                  </p>
+                )}
               </div>
             </div>
           ) : (

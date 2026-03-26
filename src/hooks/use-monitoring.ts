@@ -89,15 +89,17 @@ export function useSandboxContainers() {
 
 /**
  * Fetches container logs for a specific container.
- * Placeholder until get_container_logs command exists.
  * Polls every 5s when enabled for near-real-time log updates.
+ * Returns last 200 lines of stdout+stderr.
  */
 export function useContainerLogs(containerId: string, enabled: boolean) {
   return useQuery<string>({
     queryKey: ["monitoring", "logs", containerId],
     queryFn: async () => {
-      // TODO: invoke("get_container_logs", { containerId }) when backend supports it
-      return ""
+      return await invoke<string>("get_container_logs", {
+        containerId,
+        tail: 200,
+      })
     },
     enabled: enabled && !!containerId,
     refetchInterval: 5_000,
