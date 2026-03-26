@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 /// Structured error type for all Tauri commands.
 ///
@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 /// can display plain-language guidance to the user.
 #[derive(Debug, thiserror::Error, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
 pub enum AppError {
     #[error("Docker is not installed: {suggestion}")]
     DockerNotInstalled { suggestion: String },

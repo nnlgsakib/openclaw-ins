@@ -1,6 +1,5 @@
 use crate::error::AppError;
 use crate::install::progress::emit_progress;
-use crate::install::verify::verify_native_install;
 use crate::install::InstallResult;
 
 /// Minimum Node.js version required for native OpenClaw installation.
