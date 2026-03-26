@@ -28,3 +28,5 @@ src-tauri/target/
 
 # GSD artifacts
 .opencode/
+.gemini/
+.claude/
