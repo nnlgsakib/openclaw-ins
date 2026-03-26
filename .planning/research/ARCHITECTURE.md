@@ -1,461 +1,884 @@
 # Architecture Patterns: OpenClaw Desktop Installer
 
 **Domain:** Tauri v2 desktop app managing system-level tool installations (Docker, CLI tools, services)
-**Researched:** 2026-03-25
+**Researched:** 2026-03-26
 **Overall confidence:** HIGH
 
-## Recommended Architecture
+---
 
-Based on Tauri v2 official docs, ClawPier (a production Tauri v2 app managing OpenClaw bots via Docker), Orca Desktop (complex container management), and Docker Desktop clones — all using the same pattern.
+## v1.1 Feature Integration Analysis
+
+This document now includes integration analysis for v1.1 UX Polish & Channels milestone features:
+1. Real-time Docker log streaming during installation
+2. UI/UX overhaul with animations and micro-interactions
+3. Channel management for social app connections
+
+---
+
+## Current Architecture (v1.0 Reference)
 
 ### Layered Architecture
 
 ```
-┌─────────────────────────────────────────────────────┐
-│              React Frontend (WebView)                │
-│  Zustand store ← Tauri events → invoke() calls      │
-│  Pages: Install · Configure · Monitor · Update      │
-└──────────────────────────┬──────────────────────────┘
-                           │ Tauri IPC Bridge
-                           │ invoke() ↔ #[tauri::command]
-┌──────────────────────────▼──────────────────────────┐
-│              Tauri Core Process (Rust)               │
-│                                                      │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐ │
-│  │  Commands    │  │   State     │  │  Events     │ │
-│  │  (IPC API)   │  │ (AppState)  │  │ (streaming) │ │
-│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘ │
-│         │                │                 │         │
-│  ┌──────▼──────────────────────────────────▼──────┐ │
-│  │              Business Logic Layer               │ │
-│  │  ┌────────────┐ ┌────────────┐ ┌────────────┐  │ │
-│  │  │ DockerMgr  │ │ NativeMgr  │ │ ConfigMgr  │  │ │
-│  │  │ (bollard)  │ │ (shell/fs) │ │ (serde)    │  │ │
-│  │  └────────────┘ └────────────┘ └────────────┘  │ │
-│  │  ┌────────────┐ ┌────────────┐ ┌────────────┐  │ │
-│  │  │ Installer  │ │ Updater    │ │ Monitor    │  │ │
-│  │  └────────────┘ └────────────┘ └────────────┘  │ │
-│  └────────────────────────────────────────────────┘ │
-│                                                      │
-│  ┌────────────────────────────────────────────────┐ │
-│  │              Persistence Layer                  │ │
-│  │  JSON files (~/.config/openclaw-installer/)     │ │
-│  └────────────────────────────────────────────────┘ │
-└──────────────────────────────────────────────────────┘
-         │                    │
-┌────────▼────────┐  ┌───────▼────────┐
-│  Docker Engine  │  │ Host System    │
-│  (bollard API)  │  │ (filesystem,   │
-│  docker.sock    │  │  shell, PATH)  │
-└─────────────────┘  └────────────────┘
++-----------------------------------------------------+
+|              React Frontend (WebView)               |
+|  Zustand store <- Tauri events -> invoke() calls    |
+|  Pages: Install . Configure . Monitor . Settings    |
++-------------------------+---------------------------+
+                          | Tauri IPC Bridge
+                          | invoke() <-> #[tauri::command]
++-------------------------v---------------------------+
+|              Tauri Core Process (Rust)              |
+|                                                     |
+|  +-------------+  +-------------+  +-------------+  |
+|  |  Commands   |  |   State     |  |  Events     |  |
+|  |  (IPC API)  |  | (AppState)  |  | (streaming) |  |
+|  +------+------+  +------+------+  +------+------+  |
+|         |                |                |         |
+|  +------v--------------------------------v------+   |
+|  |              Business Logic Layer            |   |
+|  |  +----------+ +----------+ +----------+      |   |
+|  |  |docker/   | |install/  | |commands/ |      |   |
+|  |  |(bollard) | |(native)  | |(config)  |      |   |
+|  |  +----------+ +----------+ +----------+      |   |
+|  +----------------------------------------------+   |
++-----------------------------------------------------+
+         |                    |
++--------v--------+  +--------v--------+
+|  Docker Engine  |  | Host System     |
+|  (bollard API)  |  | (filesystem,    |
+|  docker.sock    |  |  shell, PATH)   |
++-----------------+  +-----------------+
 ```
 
-**Source:** ClawPier architecture (verified production pattern), Tauri v2 Process Model docs, Orca Desktop architecture.
+### Existing IPC Commands (registered in lib.rs)
 
-## Component Boundaries
+| Category | Commands | Pattern |
+|----------|----------|---------|
+| **Platform** | `get_platform_info` | Query -> Result |
+| **Docker** | `check_docker_health`, `get_docker_info`, `detect_docker` | Query -> Result |
+| **System** | `run_system_check` | Query -> Result |
+| **Install** | `install_openclaw`, `verify_installation` | Mutation + Events |
+| **Config** | `read_config`, `write_config`, `validate_config` | Query/Mutation |
+| **Monitoring** | `get_openclaw_status`, `get_agent_sessions`, `get_sandbox_containers`, `get_container_logs` | Query (polling) |
+| **Lifecycle** | `uninstall_openclaw` | Mutation |
+| **Update** | `check_openclaw_update`, `update_openclaw` | Query/Mutation |
 
-### 1. Frontend Layer (React + Zustand)
+### Existing Event Pattern
 
-| Component | Responsibility | Communicates With |
-|-----------|---------------|-------------------|
-| **Pages** | Route-level views: Install Wizard, Config Editor, Monitor Dashboard, Update Manager | Zustand store |
-| **Zustand Store** | Global frontend state: installation status, sandbox configs, agent status | `invoke()` wrappers, Tauri events |
-| **Hooks** | Tauri event subscriptions, streaming data (logs, stats) | `@tauri-apps/api/event` |
-| **`lib/tauri.ts`** | Typed `invoke()` wrappers for all IPC commands | Rust commands via IPC |
+```
+Rust Backend                    Frontend
+    |                               |
+    |--[emit("install-progress")]-->| listen("install-progress")
+    |                               |   -> setProgress(payload)
+    |                               |   -> Zustand store update
+```
 
-**Pattern:** Frontend is a "control surface" — it displays state and sends commands. All business logic lives in Rust. This follows Tauri's security model where the WebView should never hold secrets or make system decisions.
-
-### 2. IPC Command Layer
-
-| Command Category | Example Commands | Data Flow |
-|-----------------|------------------|-----------|
-| **System Check** | `check_docker`, `check_native_deps`, `get_system_info` | Frontend → Rust → shell/fs → Frontend |
-| **Installation** | `install_docker_openclaw`, `install_native_openclaw`, `uninstall_openclaw` | Frontend → Rust → Docker/Shell → events → Frontend |
-| **Config** | `read_config`, `write_config`, `validate_config`, `list_models` | Frontend → Rust → serde/filesystem → Frontend |
-| **Sandbox** | `get_sandbox_config`, `update_sandbox_config`, `set_workspace_path` | Frontend → Rust → config + Docker → Frontend |
-| **Monitor** | `list_containers`, `get_agent_status`, `start_log_stream` | Frontend → Rust → Docker API → events → Frontend |
-| **Update** | `check_updates`, `perform_update`, `rollback_update` | Frontend → Rust → Docker/GitHub API → Frontend |
-
-**Pattern:** All commands are `async fn` with `#[tauri::command]`. Async prevents blocking the WebView. Return `Result<T, AppError>` for proper error propagation.
-
-**Source:** Tauri v2 IPC docs, ClawPier `commands.rs` (verified production pattern).
-
-### 3. System Operations Layer
-
-#### DockerManager
-
-| Operation | Mechanism | Library |
-|-----------|-----------|---------|
-| Check Docker availability | `docker info` or bollard `ping()` | bollard 0.18 |
-| List containers | bollard `list_containers()` with name filters | bollard |
-| Create/start/stop/remove | bollard container lifecycle | bollard |
-| Pull images | bollard `create_image()` with streaming progress | bollard + tokio streams |
-| Stream logs | bollard `logs()` with follow flag | bollard + Tauri events |
-| Resource stats | bollard `stats()` streaming | bollard + Tauri events |
-| Exec commands | bollard `exec_create()` + `exec_start()` | bollard |
-| Compose operations | Shell out to `docker compose` | tauri-plugin-shell |
-
-**Why bollard:** It's the standard Docker API client for Rust, async-first (tokio), and used by ClawPier, Orca Desktop, and Dockerman in production. Direct socket communication (`/var/run/docker.sock`) — no CLI dependency for core operations.
-
-**Source:** bollard crate docs, ClawPier `docker_manager.rs`, Orca Desktop architecture.
-
-#### NativeInstaller
-
-| Operation | Mechanism | Notes |
-|-----------|-----------|-------|
-| Detect OS/platform | `std::env::consts::OS`, `ARCH` | Built-in |
-| Check if OpenClaw installed | `which openclaw` or check `~/.openclaw/` | Shell plugin |
-| Install via npm/npx | `npm install -g openclaw` | Shell plugin |
-| Install Docker (if missing) | Platform-specific: brew/winget/apt/yum | Shell plugin with sudo handling |
-| Verify installation | Run `openclaw --version` | Shell plugin |
-| PATH management | Check/modify shell profiles | Filesystem + shell |
-
-**Source:** Tauri plugin-shell docs, OpenClaw installation docs.
-
-#### ConfigManager
-
-| Operation | Mechanism | Notes |
-|-----------|-----------|-------|
-| Read `openclaw.json` | `serde_json` deserialization | Typed config struct |
-| Read `openclaw-config.yaml` | `serde_yaml` deserialization | For sandbox-specific config |
-| Write config | Serialize + atomic write (write temp, rename) | Prevents corruption on crash |
-| Validate config | Schema validation or serde bounds | Prevents invalid states |
-| Merge defaults | Deep merge with default config | For new installations |
-| Manage `.env` vars | Read/write API keys, env vars | For provider configuration |
-
-**Config locations:**
-- `~/.openclaw/openclaw.json` — Main config (models, providers, auth, agents)
-- `~/.openclaw/openclaw-config.yaml` — Sandbox-specific config (tools.fs, network)
-- `~/.openclaw/workspace/` — Agent working directory (bind-mounted into containers)
-
-**Source:** OpenClaw Docker setup guides (verified 2026), Docker blog on OpenClaw sandboxing.
-
-### 4. State Management (Rust Backend)
-
+**Current event payload (InstallProgress):**
 ```rust
-// Pattern from ClawPier (verified production code)
-pub struct AppState {
-    pub docker_manager: Mutex<DockerManager>,
-    pub native_installer: Mutex<NativeInstaller>,
-    pub config_manager: Mutex<ConfigManager>,
-    pub install_state: Mutex<InstallState>,
-    pub stream_manager: Mutex<StreamManager>,
+pub struct InstallProgress {
+    pub step: String,      // "pulling_image", "creating_dirs", etc.
+    pub percent: u8,       // 0-100
+    pub message: String,   // Human-readable status
 }
 ```
 
-| State Type | Contents | Mutability Pattern |
-|-----------|----------|-------------------|
-| `DockerManager` | bollard client handle, cached container info | `Mutex` — commands lock for operations |
-| `InstallState` | `Installing(Progress)`, `Installed(Version)`, `NotInstalled`, `Error(String)` | `Mutex` — updated by async install tasks |
-| `ConfigManager` | Cached config values, file paths | `Mutex` — read-heavy, write on save |
-| `StreamManager` | Active log/stats streams, cleanup handles | `Mutex` — streams added/removed per session |
+### Existing State Management
 
-**State registration in `lib.rs`:**
+| Layer | Store | Purpose |
+|-------|-------|---------|
+| **Frontend** | `useOnboardingStore` | Install wizard state machine |
+| **Frontend** | `useConfigStore` | Config editor dirty state |
+| **Frontend** | `useUIStore` | Sidebar open/closed |
+| **Backend** | `AppState` | Minimal (just `platform: String`) |
+
+### Frontend Data Fetching
+
+| Hook | Pattern | Data Source |
+|------|---------|-------------|
+| `useConfig()` | TanStack Query | `invoke("read_config")` |
+| `useSaveConfig()` | TanStack Mutation | `invoke("write_config")` |
+| `useOpenClawStatus()` | TanStack Query (polling) | `invoke("get_openclaw_status")` |
+| `useInstallOpenClaw()` | TanStack Mutation + Event listener | `invoke("install_openclaw")` + `listen("install-progress")` |
+
+---
+
+## v1.1 Integration: Real-Time Docker Log Streaming
+
+### Current State
+
+The `docker_install.rs` already streams image pull progress via bollard:
+
 ```rust
-tauri::Builder::default()
-    .setup(|app| {
-        app.manage(Mutex::new(AppState::new()));
-        // Start background status polling (5s interval)
-        start_status_polling(app.handle().clone());
-        Ok(())
-    })
-    .invoke_handler(tauri::generate_handler![
-        check_docker, install_docker_openclaw, /* ... */
-    ])
+// Current: Emits progress during image pull
+while let Some(result) = stream.next().await {
+    if let Some(status) = &info.status {
+        emit_progress(app_handle, "pulling_image", percent, &format!("{status}..."));
+    }
+}
 ```
 
-**Source:** Tauri v2 State Management docs, ClawPier `state.rs` and `lib.rs` (verified).
+**Gap:** Only emits high-level status (`"Downloading..."`, `"Extracting..."`), not detailed Docker layer output.
 
-### 5. Event Streaming (Backend → Frontend)
+### Enhanced Event Structure
 
-Events are fire-and-forget, one-way messages for real-time updates. This is Tauri's recommended pattern for streaming data from backend to frontend.
-
-| Event Name | Payload | Frequency | Purpose |
-|-----------|---------|-----------|---------|
-| `install-progress` | `{step, percent, message}` | During install | Progress bar updates |
-| `container-status` | `{id, status, health}` | Every 5s | Dashboard status |
-| `log-line` | `{container_id, timestamp, line}` | Real-time | Log viewer |
-| `stats-update` | `{container_id, cpu, memory, network}` | Every 2s | Resource monitoring |
-| `config-changed` | `{path, timestamp}` | On save | Config editor refresh |
-| `update-available` | `{current, available}` | On check | Update notification |
-
-**Pattern:** Backend spawns `tokio::spawn` polling loops that `emit()` events. Frontend subscribes with `listen()` from `@tauri-apps/api/event`. Zustand store updates from event callbacks.
-
-**Source:** Tauri v2 IPC docs (Events section), ClawPier `streaming.rs`, long-running async task tutorial.
-
-### 6. Persistence Layer
-
-| Data | Location | Format | Access |
-|------|----------|--------|--------|
-| App settings | `~/.config/openclaw-installer/settings.json` | JSON | serde |
-| Installation records | `~/.config/openclaw-installer/installations.json` | JSON | serde |
-| Cached configs | In-memory (loaded from `~/.openclaw/`) | Struct | On read |
-| Logs | `~/.config/openclaw-installer/logs/` | Rolling files | tracing |
-
-**Pattern:** Atomic writes (write to temp file, then rename) to prevent corruption. Auto-save on every mutation. Name/ID uniqueness enforced.
-
-**Source:** ClawPier `bot_store.rs` (verified pattern), Tauri Store plugin docs.
-
-## Data Flow Examples
-
-### Flow 1: One-Click Docker Install
+**NEW EVENT: `docker-log`**
 
 ```
-User clicks "Install OpenClaw (Docker)"
-    │
-    ▼
-Frontend: invoke("install_docker_openclaw", { config })
-    │
-    ▼
-Rust Command: install_docker_openclaw()
-    ├─ Check Docker availability (bollard ping)
-    │   └─ emit("install-progress", {step: "checking_docker", 10%})
-    ├─ Pull OpenClaw image (bollard create_image with streaming)
-    │   └─ emit("install-progress", {step: "pulling_image", percent: 30-70%})
-    ├─ Create config directories (~/.openclaw/)
-    │   └─ emit("install-progress", {step: "creating_config", 80%})
-    ├─ Write default openclaw.json (ConfigManager)
-    │   └─ emit("install-progress", {step: "writing_config", 90%})
-    ├─ Create + start container (bollard)
-    │   └─ emit("install-progress", {step: "starting", 95%})
-    └─ Save installation record (persist)
-        └─ emit("install-progress", {step: "complete", 100%})
-            emit("container-status", {id: "...", status: "running"})
-    │
-    ▼
-Frontend: Zustand store updates → UI shows "Running ✓"
++-------------------+                    +-------------------+
+|   docker_install  |                    |   Frontend        |
++-------------------+                    +-------------------+
+        |                                        |
+        |  emit("docker-log", DockerLogLine)     |
+        |--------------------------------------->|
+        |                                        | append to log buffer
+        |  emit("install-progress", Progress)    |
+        |--------------------------------------->|
+        |                                        | update progress bar
 ```
 
-### Flow 2: Config Edit → Live Reload
+**Rust types:**
 
-```
-User edits sandbox config (workspace access: "ro" → "rw")
-    │
-    ▼
-Frontend: invoke("update_sandbox_config", { config })
-    │
-    ▼
-Rust Command: update_sandbox_config()
-    ├─ Validate new config (schema check)
-    ├─ Write to ~/.openclaw/openclaw.json (atomic)
-    ├─ Restart affected containers (bollard stop + start)
-    │   └─ emit("container-status", {id, status: "restarting"})
-    └─ emit("config-changed", {path: "agents.defaults.sandbox"})
-    │
-    ▼
-Frontend: Config editor shows ✓ saved, container cards refresh
-```
+```rust
+// NEW: Detailed log line for Docker operations
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DockerLogLine {
+    pub timestamp: String,      // ISO 8601
+    pub level: LogLevel,        // info, warn, error, debug
+    pub layer_id: Option<String>, // Docker layer SHA
+    pub message: String,        // Raw log message
+    pub progress: Option<LayerProgress>,
+}
 
-### Flow 3: Real-Time Monitoring
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LayerProgress {
+    pub current: u64,
+    pub total: u64,
+    pub unit: String,           // "bytes", "MB"
+}
 
-```
-User opens Monitor dashboard
-    │
-    ▼
-Frontend: invoke("start_stats_stream", { container_id })
-    │
-    ▼
-Rust Command: start_stats_stream()
-    └─ StreamManager spawns tokio task:
-        loop {
-            stats = bollard.stats(container_id)  // streaming API
-            emit("stats-update", {cpu, memory, network})
-            sleep(2s)
-        }
-    │
-    ▼
-Frontend: useTauriEvent("stats-update") → Zustand → chart re-renders
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum LogLevel {
+    Info,
+    Warn,
+    Error,
+    Debug,
+}
 ```
 
-## Security Architecture
+**Frontend hook enhancement:**
+
+```typescript
+// Enhanced useInstallOpenClaw hook
+interface DockerLogLine {
+  timestamp: string;
+  level: 'info' | 'warn' | 'error' | 'debug';
+  layerId?: string;
+  message: string;
+  progress?: { current: number; total: number; unit: string };
+}
+
+export function useInstallOpenClaw() {
+  const [progress, setProgress] = useState<InstallProgress | null>(null);
+  const [logs, setLogs] = useState<DockerLogLine[]>([]);  // NEW
+
+  useEffect(() => {
+    const unlistenProgress = listen<InstallProgress>("install-progress", (e) => {
+      setProgress(e.payload);
+    });
+
+    // NEW: Listen for detailed Docker logs
+    const unlistenLogs = listen<DockerLogLine>("docker-log", (e) => {
+      setLogs(prev => [...prev.slice(-500), e.payload]); // Keep last 500 lines
+    });
+
+    return () => {
+      unlistenProgress.then(fn => fn());
+      unlistenLogs.then(fn => fn());
+    };
+  }, []);
+  // ...
+}
+```
+
+### Rust Implementation Points
+
+**Modify:** `src-tauri/src/install/docker_install.rs`
 
 ```
-┌─────────────────────────────────────────────┐
-│           WebView (Frontend)                │
-│  - No secrets stored                        │
-│  - No direct system access                  │
-│  - CSP restricts script sources             │
-└──────────────────┬──────────────────────────┘
-                   │ IPC (JSON-RPC like)
-┌──────────────────▼──────────────────────────┐
-│           Core Process (Rust)               │
-│  - ALL secrets (API keys, tokens)           │
-│  - ALL system operations                    │
-│  - ACL validates every command              │
-│  - Capabilities defined in                 │
-│    capabilities/default.json                │
-└─────────────────────────────────────────────┘
+docker_install()
+    |
+    +-- emit_progress() [existing - keep for progress bar]
+    |
+    +-- emit_docker_log() [NEW - detailed layer logs]
 ```
 
-**Key principle:** Frontend is a "control surface" — it never handles secrets, never makes system decisions. All sensitive operations go through typed IPC commands that the Core process validates.
+**No new commands needed** - log streaming uses existing event pattern, just adds new event type.
 
-**Source:** Tauri v2 Security docs, Tauri Process Model docs.
+### Build Order for Log Streaming
 
-## Platform-Specific Considerations
+1. **Add types** - `DockerLogLine`, `LayerProgress` in `install/progress.rs`
+2. **Add emit helper** - `emit_docker_log()` function
+3. **Modify docker_install** - Emit logs during `create_image` stream
+4. **Update frontend hook** - Add log listener to `useInstallOpenClaw`
+5. **Add log viewer component** - Terminal-style component in `step-install.tsx`
 
-| Concern | Windows | Linux |
-|---------|---------|-------|
-| Docker detection | Docker Desktop or WSL2 Docker Engine | Docker Engine (systemd service) |
-| Docker socket | `//var/run/docker.sock` (named pipe via WSL2) | `/var/run/docker.sock` |
-| Native install | `npm` via winget/Chocolatey, or bundled Node.js | `npm` via apt/yum/pacman |
-| PATH resolution | Registry-based PATH, may need refresh | `~/.bashrc`, `~/.zshrc` |
-| WSL integration | WSL2 for Docker path, detect available distros | N/A (native) |
-| System tray | Supported | Supported (appindicator) |
-| Auto-start | Registry `Run` key | `.desktop` file in `~/.config/autostart/` |
+---
 
-**Source:** Tauri v2 platform docs, ClawPier multi-platform build docs.
+## v1.1 Integration: Animation State Management
 
-## Suggested Build Order (Dependencies)
+### Current UI State
 
-Based on component dependencies — each layer needs the one below it.
+```
+useUIStore (Zustand)
+  +-- sidebarOpen: boolean
+  +-- toggleSidebar()
+  +-- setSidebarOpen()
+```
 
-### Phase 1: Foundation
-**Build:** Project scaffold, Tauri v2 setup, frontend shell, basic state management
-**Why:** Everything depends on the Tauri IPC bridge and state container existing
+**Gap:** No animation state, no transition coordination.
 
-### Phase 2: Docker Layer
-**Build:** `DockerManager` (bollard integration), Docker availability check, container listing
-**Why:** Docker operations are the core capability. Can't install or monitor without this.
+### Animation Strategy
 
-### Phase 3: Installation Engine
-**Build:** `NativeInstaller`, `Installer` orchestrator, image pulling, container creation
-**Why:** First user-facing feature. Depends on Docker layer + config manager.
+**Recommended approach:** CSS-first animations with Tailwind, not JS animation state.
 
-### Phase 4: Config Management
-**Build:** `ConfigManager`, config read/write/validate, sandbox config UI
-**Why:** Users need to configure after installing. Depends on knowing what's installed.
+```
++-----------------------------------------+
+|          Animation Categories           |
++-----------------------------------------+
+| Micro-interactions   | CSS transitions  |
+| (hover, focus, tap)  | (Tailwind only)  |
++-----------------------------------------+
+| Component entrances  | CSS @keyframes   |
+| (mount animations)   | (Tailwind only)  |
++-----------------------------------------+
+| Progress animations  | CSS transitions  |
+| (bars, spinners)     | on state change  |
++-----------------------------------------+
+| Page transitions     | Framer Motion    |
+| (optional, complex)  | (if needed)      |
++-----------------------------------------+
+```
 
-### Phase 5: Monitoring & Streaming
-**Build:** Event streaming, log viewer, stats dashboard, real-time status
-**Why:** Polishing feature, not blocking. Depends on Docker layer + container lifecycle.
+### No New Zustand State Needed
 
-### Phase 6: Update & Uninstall
-**Build:** Version checking, update flow, clean uninstall
-**Why:** Maintenance features. Depends on everything else being stable.
+Animation state should NOT live in global stores because:
+1. Animations are transient (not persisted)
+2. Each component owns its animation lifecycle
+3. CSS handles most cases via Tailwind classes
+
+**Pattern for component-level animation:**
+
+```tsx
+// Local state for animations, not Zustand
+function ChannelCard({ channel }) {
+  const [isHovered, setIsHovered] = useState(false);
+  const [isExpanding, setIsExpanding] = useState(false);
+
+  return (
+    <div
+      className={cn(
+        "transition-all duration-200",
+        isHovered && "scale-[1.02] shadow-lg",
+        isExpanding && "animate-expand"
+      )}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      {/* ... */}
+    </div>
+  );
+}
+```
+
+### Animation Utilities (Tailwind v4)
+
+**Add to `src/index.css`:**
+
+```css
+@theme {
+  --animate-fade-in: fade-in 0.2s ease-out;
+  --animate-slide-up: slide-up 0.3s ease-out;
+  --animate-pulse-subtle: pulse-subtle 2s ease-in-out infinite;
+  --animate-expand: expand 0.2s ease-out;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+@keyframes expand {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+```
+
+### Build Order for Animations
+
+1. **Add CSS utilities** - Custom keyframes in `index.css`
+2. **Create animation primitives** - `AnimatedCard`, `AnimatedList` components
+3. **Update existing components** - Add transitions to Cards, Buttons, Progress
+4. **Add page transitions** - (Optional) Consider Framer Motion if needed
+
+---
+
+## v1.1 Integration: Channel Management
+
+### Architecture Overview
+
+```
++------------------------------------------------------------------+
+|                        Frontend                                   |
++------------------------------------------------------------------+
+|  /channels page                                                  |
+|  +-------------------+  +--------------------+  +---------------+ |
+|  | ChannelsOverview  |  | ChannelSetupWizard |  | ChannelStatus | |
+|  | (list all)        |  | (per-channel)      |  | (monitoring)  | |
+|  +-------------------+  +--------------------+  +---------------+ |
+|           |                      |                     |          |
+|  +--------v----------------------v---------------------v--------+ |
+|  |                    useChannelsStore (Zustand)                | |
+|  |  channels: Channel[]                                          | |
+|  |  activeSetup: ChannelType | null                              | |
+|  |  setupProgress: SetupProgress | null                          | |
+|  +-------------------------------+------------------------------+ |
+|                                  |                                |
+|                    invoke() + listen()                            |
++----------------------------------+--------------------------------+
+                                   |
++----------------------------------v--------------------------------+
+|                       Rust Backend                                |
++------------------------------------------------------------------+
+|  NEW MODULE: src-tauri/src/commands/channels.rs                  |
+|                                                                   |
+|  Commands:                                                        |
+|  +------------------------+  +-------------------------+          |
+|  | get_channel_status     |  | start_whatsapp_pairing  |          |
+|  | list_channels          |  | submit_telegram_token   |          |
+|  | disconnect_channel     |  | submit_discord_token    |          |
+|  +------------------------+  +-------------------------+          |
+|                                                                   |
+|  Events:                                                          |
+|  +------------------------+  +-------------------------+          |
+|  | channel-status-changed |  | whatsapp-qr-code        |          |
+|  | pairing-progress       |  | channel-message         |          |
+|  +------------------------+  +-------------------------+          |
++------------------------------------------------------------------+
+                                   |
++----------------------------------v--------------------------------+
+|                    OpenClaw API / Config                          |
++------------------------------------------------------------------+
+|  ~/.openclaw/config.yaml                                         |
+|    channels:                                                      |
+|      whatsapp:                                                    |
+|        enabled: true                                              |
+|        session_path: ~/.openclaw/channels/whatsapp                |
+|      telegram:                                                    |
+|        enabled: true                                              |
+|        bot_token_env: TELEGRAM_BOT_TOKEN                          |
+|      discord:                                                     |
+|        enabled: true                                              |
+|        bot_token_env: DISCORD_BOT_TOKEN                           |
++------------------------------------------------------------------+
+```
+
+### New Rust Types
+
+**File:** `src-tauri/src/commands/channels.rs` (NEW)
+
+```rust
+use serde::{Deserialize, Serialize};
+
+/// Supported channel types
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum ChannelType {
+    Whatsapp,
+    Telegram,
+    Discord,
+    Slack,
+    Email,
+}
+
+/// Channel connection status
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", tag = "status")]
+pub enum ChannelStatus {
+    Connected {
+        connected_at: String,
+        account_info: Option<String>,
+    },
+    Disconnected,
+    Pairing {
+        qr_code: Option<String>,  // Base64 QR for WhatsApp
+        instructions: String,
+    },
+    Error {
+        message: String,
+        suggestion: String,
+    },
+}
+
+/// A configured channel
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Channel {
+    pub channel_type: ChannelType,
+    pub enabled: bool,
+    pub status: ChannelStatus,
+    pub display_name: String,
+    pub icon: String,           // Icon identifier for frontend
+    pub requires_token: bool,   // Telegram/Discord need tokens
+    pub requires_pairing: bool, // WhatsApp needs QR pairing
+}
+
+/// Progress during channel setup
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChannelSetupProgress {
+    pub channel: ChannelType,
+    pub step: String,
+    pub percent: u8,
+    pub message: String,
+}
+```
+
+### New Rust Commands
+
+**File:** `src-tauri/src/commands/channels.rs` (NEW)
+
+| Command | Input | Output | Events |
+|---------|-------|--------|--------|
+| `list_channels` | none | `Vec<Channel>` | none |
+| `get_channel_status` | `channel: ChannelType` | `Channel` | none |
+| `start_whatsapp_pairing` | none | `()` | `whatsapp-qr-code`, `pairing-progress` |
+| `submit_telegram_token` | `token: String` | `Result<(), AppError>` | `channel-status-changed` |
+| `submit_discord_token` | `token: String` | `Result<(), AppError>` | `channel-status-changed` |
+| `disconnect_channel` | `channel: ChannelType` | `()` | `channel-status-changed` |
+| `test_channel_connection` | `channel: ChannelType` | `Result<(), AppError>` | none |
+
+### New Events
+
+| Event | Payload | Trigger |
+|-------|---------|---------|
+| `whatsapp-qr-code` | `{ qrCode: string (base64) }` | During WhatsApp pairing |
+| `pairing-progress` | `ChannelSetupProgress` | During any channel setup |
+| `channel-status-changed` | `{ channel: ChannelType, status: ChannelStatus }` | On connect/disconnect |
+| `channel-message` | `{ channel: ChannelType, preview: string }` | (Optional) New message notification |
+
+### Frontend Store
+
+**File:** `src/stores/use-channels-store.ts` (NEW)
+
+```typescript
+import { create } from "zustand";
+
+export type ChannelType = 'whatsapp' | 'telegram' | 'discord' | 'slack' | 'email';
+
+export type ChannelStatus =
+  | { status: 'connected'; connectedAt: string; accountInfo?: string }
+  | { status: 'disconnected' }
+  | { status: 'pairing'; qrCode?: string; instructions: string }
+  | { status: 'error'; message: string; suggestion: string };
+
+export interface Channel {
+  channelType: ChannelType;
+  enabled: boolean;
+  status: ChannelStatus;
+  displayName: string;
+  icon: string;
+  requiresToken: boolean;
+  requiresPairing: boolean;
+}
+
+interface ChannelsState {
+  channels: Channel[];
+  activeSetup: ChannelType | null;
+  setupProgress: { step: string; percent: number; message: string } | null;
+  qrCode: string | null;
+
+  setChannels: (channels: Channel[]) => void;
+  updateChannelStatus: (type: ChannelType, status: ChannelStatus) => void;
+  startSetup: (type: ChannelType) => void;
+  setSetupProgress: (progress: { step: string; percent: number; message: string } | null) => void;
+  setQrCode: (qr: string | null) => void;
+  clearSetup: () => void;
+}
+
+export const useChannelsStore = create<ChannelsState>((set) => ({
+  channels: [],
+  activeSetup: null,
+  setupProgress: null,
+  qrCode: null,
+
+  setChannels: (channels) => set({ channels }),
+  updateChannelStatus: (type, status) => set((state) => ({
+    channels: state.channels.map(ch =>
+      ch.channelType === type ? { ...ch, status } : ch
+    ),
+  })),
+  startSetup: (type) => set({ activeSetup: type, setupProgress: null, qrCode: null }),
+  setSetupProgress: (progress) => set({ setupProgress: progress }),
+  setQrCode: (qrCode) => set({ qrCode }),
+  clearSetup: () => set({ activeSetup: null, setupProgress: null, qrCode: null }),
+}));
+```
+
+### Frontend Hook
+
+**File:** `src/hooks/use-channels.ts` (NEW)
+
+```typescript
+import { useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
+import { useChannelsStore } from "@/stores/use-channels-store";
+import type { Channel, ChannelType, ChannelStatus } from "@/stores/use-channels-store";
+
+export function useChannels() {
+  const { setChannels, updateChannelStatus, setQrCode, setSetupProgress } = useChannelsStore();
+
+  // Event listeners for real-time updates
+  useEffect(() => {
+    const unlistenStatus = listen<{ channel: ChannelType; status: ChannelStatus }>(
+      "channel-status-changed",
+      (e) => updateChannelStatus(e.payload.channel, e.payload.status)
+    );
+
+    const unlistenQr = listen<{ qrCode: string }>(
+      "whatsapp-qr-code",
+      (e) => setQrCode(e.payload.qrCode)
+    );
+
+    const unlistenProgress = listen<{ step: string; percent: number; message: string }>(
+      "pairing-progress",
+      (e) => setSetupProgress(e.payload)
+    );
+
+    return () => {
+      unlistenStatus.then(fn => fn());
+      unlistenQr.then(fn => fn());
+      unlistenProgress.then(fn => fn());
+    };
+  }, []);
+
+  return useQuery<Channel[]>({
+    queryKey: ["channels"],
+    queryFn: async () => {
+      const channels = await invoke<Channel[]>("list_channels");
+      setChannels(channels);
+      return channels;
+    },
+    refetchInterval: 30_000, // Poll every 30s
+  });
+}
+
+export function useStartWhatsAppPairing() {
+  const { startSetup } = useChannelsStore();
+  return useMutation({
+    mutationFn: async () => {
+      startSetup('whatsapp');
+      await invoke("start_whatsapp_pairing");
+    },
+  });
+}
+
+export function useSubmitToken(channelType: 'telegram' | 'discord') {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (token: string) => {
+      const command = channelType === 'telegram'
+        ? "submit_telegram_token"
+        : "submit_discord_token";
+      await invoke(command, { token });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["channels"] });
+    },
+  });
+}
+
+export function useDisconnectChannel() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (channelType: ChannelType) => {
+      await invoke("disconnect_channel", { channel: channelType });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["channels"] });
+    },
+  });
+}
+```
+
+### New Components
+
+```
+src/
+  pages/
+    channels.tsx           (NEW - main channels page)
+  components/
+    channels/
+      channels-overview.tsx    (NEW - list of all channels)
+      channel-card.tsx         (NEW - individual channel status card)
+      whatsapp-setup.tsx       (NEW - QR code pairing flow)
+      token-setup.tsx          (NEW - Telegram/Discord token input)
+      connection-status.tsx    (NEW - status indicator)
+```
+
+### Router Update
+
+**Modify:** `src/router.tsx`
+
+```tsx
+import { Channels } from "@/pages/channels";  // NEW
+
+<Routes>
+  {/* ... existing routes ... */}
+  <Route path="/channels" element={<Channels />} />  {/* NEW */}
+</Routes>
+```
+
+### Sidebar Update
+
+**Modify:** `src/components/layout/sidebar-nav.tsx`
+
+Add new navigation item between Configure and Monitor:
+```tsx
+{ icon: MessageSquare, label: "Channels", path: "/channels" }
+```
+
+### Config Schema Extension
+
+**Modify:** `src-tauri/src/commands/config.rs`
+
+```rust
+// Add to OpenClawConfig
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct OpenClawConfig {
+    pub provider: Option<ProviderConfig>,
+    pub sandbox: Option<SandboxConfig>,
+    pub tools: Option<ToolsConfig>,
+    pub agents: Option<AgentsConfig>,
+    pub channels: Option<ChannelsConfig>,  // NEW
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChannelsConfig {
+    pub whatsapp: Option<WhatsAppConfig>,
+    pub telegram: Option<TelegramConfig>,
+    pub discord: Option<DiscordConfig>,
+    pub slack: Option<SlackConfig>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WhatsAppConfig {
+    pub enabled: bool,
+    pub session_path: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TelegramConfig {
+    pub enabled: bool,
+    pub bot_token_env: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DiscordConfig {
+    pub enabled: bool,
+    pub bot_token_env: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SlackConfig {
+    pub enabled: bool,
+    pub app_token_env: Option<String>,
+    pub bot_token_env: Option<String>,
+}
+```
+
+---
+
+## Suggested Build Order (v1.1)
+
+Based on dependencies between features:
+
+```
+Week 1: Foundation
++-----------------------------------------------+
+|  1. Docker Log Streaming (backend)            |
+|     - Add DockerLogLine types                 |
+|     - Add emit_docker_log() helper            |
+|     - Modify docker_install.rs                |
+|                                               |
+|  2. Docker Log Streaming (frontend)           |
+|     - Update useInstallOpenClaw hook          |
+|     - Add log viewer component                |
++-----------------------------------------------+
+         |
+         v
+Week 2: Animation System
++-----------------------------------------------+
+|  3. CSS Animation Utilities                   |
+|     - Add keyframes to index.css              |
+|     - Create animation utility classes        |
+|                                               |
+|  4. Component Animation Updates               |
+|     - Update Card, Button, Progress           |
+|     - Add AnimatedList primitive              |
+|     - Update step-install.tsx with animations |
++-----------------------------------------------+
+         |
+         v
+Week 3-4: Channel Management
++-----------------------------------------------+
+|  5. Channel Types & Commands (backend)        |
+|     - Create channels.rs module               |
+|     - Add ChannelType, Channel, ChannelStatus |
+|     - Implement list_channels command         |
+|     - Register in lib.rs                      |
+|                                               |
+|  6. Channel Store & Hooks (frontend)          |
+|     - Create use-channels-store.ts            |
+|     - Create use-channels.ts hook             |
+|                                               |
+|  7. Channels Page & Components                |
+|     - Create channels.tsx page                |
+|     - Create channel-card.tsx                 |
+|     - Create channels-overview.tsx            |
+|     - Update router and sidebar               |
+|                                               |
+|  8. WhatsApp Pairing Flow                     |
+|     - Implement start_whatsapp_pairing        |
+|     - Add QR code event streaming             |
+|     - Create whatsapp-setup.tsx               |
+|                                               |
+|  9. Token-Based Channels                      |
+|     - Implement submit_telegram_token         |
+|     - Implement submit_discord_token          |
+|     - Create token-setup.tsx                  |
+|                                               |
+| 10. Channel Monitoring                        |
+|     - Add disconnect_channel                  |
+|     - Add test_channel_connection             |
+|     - Create connection-status.tsx            |
++-----------------------------------------------+
+```
 
 ### Dependency Graph
 
 ```
-Phase 1 (Foundation)
-    │
-    ├── Phase 2 (Docker Layer)
-    │       │
-    │       ├── Phase 3 (Installation)
-    │       │       │
-    │       │       └── Phase 4 (Config Management)
-    │       │               │
-    │       └───────────────┤
-    │                       │
-    │       ┌───────────────┘
-    │       │
-    │       ├── Phase 5 (Monitoring)
-    │       │
-    │       └── Phase 6 (Update/Uninstall)
+                    Docker Log Streaming
+                           |
+                           v
+                    Animation System
+                           |
+                           v
++----------------------+   |   +----------------------+
+|  Channel Backend     |<--+-->|  Channel Frontend    |
+|  (types, commands)   |       |  (store, hooks)      |
++----------+-----------+       +----------+-----------+
+           |                              |
+           v                              v
++----------+-----------+       +----------+-----------+
+|  WhatsApp Pairing    |       |  Channel UI          |
+|  (QR flow)           |       |  (page, cards)       |
++----------+-----------+       +----------+-----------+
+           |                              |
+           +---------------+--------------+
+                           |
+                           v
+              +------------+-------------+
+              |  Token Channels          |
+              |  (Telegram, Discord)     |
+              +------------+-------------+
+                           |
+                           v
+              +------------+-------------+
+              |  Channel Monitoring      |
+              |  (status, disconnect)    |
+              +--------------------------+
 ```
 
-## Anti-Patterns to Avoid
+---
 
-### Anti-Pattern 1: CLI Dependency for Core Operations
-**What:** Shelling out to `docker` CLI for every operation
-**Why bad:** Slow, fragile (output parsing), no streaming, platform-dependent
-**Instead:** Use bollard (Rust Docker API client) for all container operations. Only shell out for `docker compose` operations where no good Rust library exists.
+## Files to Create (NEW)
 
-**Source:** ClawPier, Orca Desktop — both use bollard exclusively for core Docker ops.
+| File | Purpose |
+|------|---------|
+| `src-tauri/src/commands/channels.rs` | Channel management commands |
+| `src/stores/use-channels-store.ts` | Channel state management |
+| `src/hooks/use-channels.ts` | Channel data hooks |
+| `src/pages/channels.tsx` | Main channels page |
+| `src/components/channels/channels-overview.tsx` | Channel list view |
+| `src/components/channels/channel-card.tsx` | Individual channel card |
+| `src/components/channels/whatsapp-setup.tsx` | QR code pairing wizard |
+| `src/components/channels/token-setup.tsx` | Token input for Telegram/Discord |
+| `src/components/channels/connection-status.tsx` | Status indicator component |
+| `src/components/install/log-viewer.tsx` | Terminal-style Docker log viewer |
 
-### Anti-Pattern 2: Secrets in Frontend
-**What:** Storing API keys or tokens in Zustand/React state
-**Why bad:** Visible in WebView devtools, potential extraction via XSS
-**Instead:** All secrets managed by Rust Core process. Frontend receives redacted/masked values for display only.
+## Files to Modify
 
-**Source:** Tauri v2 Security docs.
+| File | Changes |
+|------|---------|
+| `src-tauri/src/commands/mod.rs` | Add `pub mod channels;` |
+| `src-tauri/src/lib.rs` | Register new channel commands |
+| `src-tauri/src/commands/config.rs` | Add `ChannelsConfig` to `OpenClawConfig` |
+| `src-tauri/src/install/progress.rs` | Add `DockerLogLine` type, `emit_docker_log()` |
+| `src-tauri/src/install/docker_install.rs` | Emit detailed logs during install |
+| `src/hooks/use-install.ts` | Add Docker log listener |
+| `src/components/install/step-install.tsx` | Add log viewer, animations |
+| `src/router.tsx` | Add `/channels` route |
+| `src/components/layout/sidebar-nav.tsx` | Add Channels nav item |
+| `src/index.css` | Add animation keyframes |
+| `src/stores/use-config-store.ts` | Add channel config types |
 
-### Anti-Pattern 3: Synchronous System Operations
-**What:** Blocking the Core process with synchronous shell/fs/Docker calls
-**Why bad:** Freezes the entire app — WebView becomes unresponsive
-**Instead:** All system operations are `async fn` commands, executed on tokio thread pool.
-
-**Source:** Tauri v2 IPC docs, long-running async task guide.
-
-### Anti-Pattern 4: Mutable State Without Mutex
-**What:** Sharing state between threads without synchronization
-**Why bad:** Data races, undefined behavior, crashes
-**Instead:** Wrap all shared state in `Mutex<T>`. Use `std::sync::Mutex` (not async) for most cases.
-
-**Source:** Tauri v2 State Management docs.
-
-### Anti-Pattern 5: Hardcoded Container Names
-**What:** Using fixed names like `openclaw` for containers
-**Why bad:** Breaks with multiple instances, conflicts with user's existing containers
-**Instead:** Use UUIDs: `openclaw-installer-{uuid}`. Filter by label, not name.
-
-**Source:** ClawPier naming convention (`clawpier-{uuid}`).
-
-## Tauri v2 Specific Patterns
-
-### Capabilities (Security ACL)
-
-Define in `src-tauri/capabilities/default.json`:
-```json
-{
-  "identifier": "default",
-  "windows": ["main"],
-  "permissions": [
-    "core:default",
-    "shell:allow-execute",
-    "shell:allow-stdin-write",
-    "fs:allow-read-text-file",
-    "fs:allow-write-text-file",
-    "fs:scope-home"
-  ]
-}
-```
-
-**Why:** Tauri v2 requires explicit capability declarations for all IPC access. This is the security boundary.
-
-**Source:** Tauri v2 Security/Capabilities docs.
-
-### App Identifier
-
-Use `com.openclaw.installer` (not `.app` suffix — conflicts with macOS conventions).
-
-**Source:** ClawPier CLAUDE.md (verified gotcha).
-
-### Vite + React Version Pinning
-
-- Vite 6 (not 8 — esbuild issues)
-- `@vitejs/plugin-react@4` (not v6 — requires Vite 8)
-- pnpm needs `"onlyBuiltDependencies": ["esbuild"]`
-
-**Source:** ClawPier build gotchas (verified).
+---
 
 ## Confidence Assessment
 
-| Area | Confidence | Source |
-|------|------------|--------|
-| Tauri v2 IPC/Commands pattern | HIGH | Official docs + ClawPier production code |
-| bollard for Docker API | HIGH | Official crate + 3 production apps (ClawPier, Orca, Dockerman) |
-| State management (Mutex pattern) | HIGH | Official docs + ClawPier + community consensus |
-| Event streaming pattern | HIGH | Official docs + ClawPier + async task tutorial |
-| OpenClaw config structure | MEDIUM | Multiple blog posts (2026), consistent across sources |
-| Platform-specific (Windows) | MEDIUM | Tauri docs (cross-platform), less direct verification |
-| Config atomic writes | MEDIUM | ClawPier pattern + common Rust idiom |
+| Feature | Confidence | Notes |
+|---------|------------|-------|
+| Docker log streaming | HIGH | Extends existing event pattern |
+| Animation approach | HIGH | Tailwind v4 CSS-first is industry standard |
+| Channel types/commands | HIGH | Follows existing command patterns |
+| WhatsApp QR pairing | MEDIUM | Depends on OpenClaw's internal WhatsApp bridge API |
+| Token-based channels | HIGH | Simple string storage/validation |
+| Channel monitoring | MEDIUM | May need OpenClaw API research for status polling |
+
+---
 
 ## Sources
 
 | Source | Type | Confidence |
 |--------|------|------------|
-| [Tauri v2 Architecture](https://v2.tauri.app/concept/architecture/) | Official docs | HIGH |
-| [Tauri v2 Process Model](https://v2.tauri.app/concept/process-model/) | Official docs | HIGH |
-| [Tauri v2 IPC](https://v2.tauri.app/concept/inter-process-communication/) | Official docs | HIGH |
-| [Tauri v2 State Management](https://v2.tauri.app/develop/state-management/) | Official docs | HIGH |
-| [ClawPier](https://github.com/SebastianElvis/clawpier) | Production app (OpenClaw + Docker + Tauri v2) | HIGH |
-| [Orca Desktop](https://github.com/edvin/orca) | Production app (container management + Tauri v2) | HIGH |
-| [Dockerman](https://github.com/zingerlittlebee/dockerman.app) | Production app (Docker UI + Tauri) | HIGH |
-| [OpenClaw Docker Setup](https://singhajit.com/openclaw-docker-setup/) | Tutorial (2026-03-13) | MEDIUM |
-| [Docker Blog: OpenClaw Sandboxes](https://www.docker.com/blog/run-openclaw-securely-in-docker-sandboxes/) | Official Docker blog | HIGH |
-| [Long-running async in Tauri v2](https://sneakycrow.dev/blog/2024-05-12-running-async-tasks-in-tauri-v2) | Tutorial | MEDIUM |
+| [Existing codebase analysis](./src-tauri/) | Primary source | HIGH |
+| [Tauri v2 Events docs](https://v2.tauri.app/develop/calling-rust/#event-system) | Official docs | HIGH |
+| [bollard CreateImage streaming](https://docs.rs/bollard/latest/bollard/image/struct.Image.html) | Crate docs | HIGH |
+| [Tailwind v4 animations](https://tailwindcss.com/docs/animation) | Official docs | HIGH |
+| [OpenClaw channels config](https://openclaw.dev/docs/channels) | OpenClaw docs | MEDIUM |
 
 ---
 
-*Researched: 2026-03-25*
-*All architecture patterns verified against production Tauri v2 applications managing Docker containers.*
+*Updated: 2026-03-26 for v1.1 milestone integration analysis*

@@ -1,20 +1,636 @@
 # Domain Pitfalls: OpenClaw Desktop Installer
 
 **Domain:** Desktop app managing Docker containers, CLI tools, and system-level configurations
-**Researched:** 2026-03-25
+**Researched:** 2026-03-25, updated 2026-03-26 for v1.1 features
 
 ## Executive Summary
 
 Desktop apps that manage system-level tools face a unique class of failures: they straddle user-space and system-space, must handle privilege elevation across platforms, manage Docker's fragile ecosystem, and coordinate config formats that were never designed for GUI editing. The research reveals that **most pain comes from orchestration details, not core functionality** — Docker compose quality, permission models, endpoint reachability, and config hygiene.
 
-Three sources of real-world postmortems were particularly informative:
-- OpenClaw's own GitHub issues (broken systemd paths, Conda PATH conflicts)
-- Claude Code's installer failures (silent failures, auto-updater race conditions)
-- Docker Desktop's WSL integration issues (fragile VM networking, update breakage)
+**v1.1 Addition:** The v1.1 milestone adds three high-risk feature areas:
+1. **Real-time log streaming** — Memory management, IPC pressure, cleanup
+2. **UI/UX animations** — Tauri webview GPU limits, layout thrashing, library weight
+3. **Channel management** — OAuth security, token storage, pairing UX
+
+These features introduce integration pitfalls specific to adding them to an existing working system.
 
 ---
 
-## Critical Pitfalls
+## v1.1-Specific Pitfalls
+
+### Log Streaming Pitfalls
+
+#### LS-01: Event Listener Memory Leaks
+
+**Severity:** Critical
+**Phase:** Log Streaming Implementation
+
+**What goes wrong:** Frontend event listeners (`listen()` from `@tauri-apps/api/event`) accumulate when components mount/unmount without cleanup. Each navigation to the install page adds another listener. After 10 navigations, 10 listeners fire in parallel, causing exponential memory growth and UI lag.
+
+**Why it happens:**
+- React component unmounts don't automatically clean up Tauri event listeners
+- `useEffect` cleanup functions are easy to forget
+- TanStack Query doesn't manage Tauri events — they live outside the cache
+
+**Current codebase state:** The existing `useContainerLogs` hook uses polling (`refetchInterval: 5_000`), not streaming. Switching to event-based streaming requires new cleanup patterns.
+
+**Consequences:**
+- Memory usage grows with each navigation
+- Multiple handlers process same event, causing duplicate log entries
+- Eventually crashes the webview
+
+**Prevention:**
+```typescript
+// ALWAYS return the unlisten function from useEffect
+useEffect(() => {
+  const unlisten = listen<LogLine>("install-log", handler);
+  return () => { unlisten.then(fn => fn()); };
+}, []);
+```
+1. **Use a custom hook** that wraps `listen` with automatic cleanup
+2. **Add a dev-mode listener counter** that warns when listeners > 1
+3. **Test navigation patterns** — mount/unmount install page 20 times, check memory
+
+**Warning signs:**
+- Memory usage grows over time in dev tools
+- Same log line appears multiple times
+- `listen()` calls without corresponding cleanup
+
+---
+
+#### LS-02: Unbounded Log Buffer Growth
+
+**Severity:** High
+**Phase:** Log Streaming Implementation
+
+**What goes wrong:** Docker image pulls can emit thousands of log lines. If the frontend stores all log lines in state without bounds, memory grows unbounded. A large image pull (multi-GB) can emit 50,000+ progress messages.
+
+**Why it happens:**
+- `useState` array grows without limit
+- No virtualization for log display
+- Backend streams everything, frontend buffers everything
+
+**Current codebase state:** `get_container_logs` returns last 200 lines via `tail` parameter. Real-time streaming has no built-in limit.
+
+**Consequences:**
+- UI becomes unresponsive during long installs
+- Browser tab crashes from memory pressure
+- Scrolling performance degrades with log length
+
+**Prevention:**
+1. **Cap log buffer to N lines** (e.g., 500-1000 lines) — shift old lines out
+2. **Use virtualized rendering** — only render visible lines (e.g., `react-window`)
+3. **Implement log rotation** — write to file, display tail in UI
+4. **Emit aggregate progress** — don't send every Docker layer progress tick
+
+```typescript
+const MAX_LOG_LINES = 500;
+setLogs(prev => [...prev, newLine].slice(-MAX_LOG_LINES));
+```
+
+**Warning signs:**
+- Log component re-renders slowing down
+- Array length in React DevTools growing without bound
+- Installation progress becomes sluggish mid-install
+
+---
+
+#### LS-03: Tauri Event Channel Backpressure
+
+**Severity:** Medium
+**Phase:** Log Streaming Implementation
+
+**What goes wrong:** Rust backend emits events faster than the frontend can process them. During rapid Docker layer downloads, the backend might emit 100+ events/second. The IPC channel buffers these, causing memory pressure on both sides.
+
+**Why it happens:**
+- `app_handle.emit()` is fire-and-forget with no backpressure
+- bollard's image pull stream emits at Docker's pace, not UI's pace
+- Frontend JS event loop can only process so fast
+
+**Current codebase state:** `emit_progress()` in `progress.rs` calls `handle.emit().ok()` — errors are silently swallowed, no throttling.
+
+**Consequences:**
+- Events queue up, causing delayed UI updates
+- Memory pressure on Rust side
+- UI "catches up" in bursts after downloads complete
+
+**Prevention:**
+1. **Debounce/throttle emissions** — emit at most every 100ms during rapid progress
+2. **Aggregate progress events** — batch multiple Docker layers into one event
+3. **Use progress milestones** — emit at 5% increments, not every byte
+4. **Monitor queue depth** in dev mode
+
+```rust
+// Debounce pattern: track last emit time
+let now = Instant::now();
+if now.duration_since(last_emit) > Duration::from_millis(100) {
+    emit_progress(handle, step, percent, message);
+    last_emit = now;
+}
+```
+
+**Warning signs:**
+- UI progress jumps suddenly after being stuck
+- Memory spike during image pulls
+- Logs appear in batches rather than streaming
+
+---
+
+#### LS-04: Stream Cleanup on Cancellation
+
+**Severity:** High
+**Phase:** Log Streaming Implementation
+
+**What goes wrong:** User navigates away during installation. The bollard image pull stream continues running in the background, emitting events to a dead listener. Resources leak, and the installation might "complete" without the user knowing.
+
+**Why it happens:**
+- Tokio tasks spawned for streaming aren't cancelled on navigation
+- No cancellation token passed to async operations
+- Tauri command handlers run to completion regardless of frontend state
+
+**Current codebase state:** `docker_install` is a synchronous flow — it runs to completion or error. Adding streaming requires explicit cancellation handling.
+
+**Consequences:**
+- Background resource consumption
+- Confusing state when user returns to install page
+- Potential for zombie containers if install partially completes
+
+**Prevention:**
+1. **Use CancellationToken** from `tokio_util` — pass to streaming operations
+2. **Store cancel handle in app state** — allow frontend to trigger cancellation
+3. **Implement cleanup on cancel** — remove partial state (containers, files)
+4. **Add "Cancel Installation" button** with explicit cleanup
+
+```rust
+use tokio_util::sync::CancellationToken;
+
+let token = CancellationToken::new();
+tokio::select! {
+    result = pull_image(&docker, token.clone()) => { ... }
+    _ = token.cancelled() => { cleanup(); }
+}
+```
+
+**Warning signs:**
+- Docker pulls continue after leaving install page
+- No cancel button on long operations
+- `docker ps` shows containers user didn't expect
+
+---
+
+### Animation & UI Pitfalls
+
+#### UI-01: GPU Compositing Layer Explosion
+
+**Severity:** High
+**Phase:** UI/UX Overhaul
+
+**What goes wrong:** Every animated element creates a GPU compositing layer. Animating 20+ elements simultaneously (e.g., staggered list animations) exhausts GPU memory. Tauri webview (WebView2 on Windows, WebKitGTK on Linux) has lower GPU budgets than Chrome.
+
+**Why it happens:**
+- `transform` and `opacity` create GPU layers (good)
+- Too many layers = GPU memory pressure
+- `will-change: transform` on every element
+- Framer Motion's default exit animations keep layers alive
+
+**Current codebase state:** Current UI uses minimal animations (`animate-spin` on loaders). Adding micro-interactions to every component could trigger this.
+
+**Consequences:**
+- Janky animations, especially on integrated GPUs
+- High GPU memory usage
+- Blank frames during transitions
+- Worse on Linux (WebKitGTK) than Windows (WebView2)
+
+**Prevention:**
+1. **Limit concurrent animations** — stagger with delays, max 3-5 simultaneous
+2. **Use CSS animations over JS** where possible — lower overhead
+3. **Audit with "Layers" panel** in DevTools — count active layers
+4. **Test on low-end hardware** — integrated Intel GPU is baseline
+5. **Avoid `will-change` except for active animations**
+
+```css
+/* DO: Only promote during animation */
+.card { transition: transform 200ms; }
+.card:hover { transform: scale(1.02); }
+
+/* DON'T: Permanent promotion */
+.card { will-change: transform; }
+```
+
+**Warning signs:**
+- Animations smooth in Chrome, janky in app
+- DevTools shows 50+ compositing layers
+- GPU memory usage spikes during transitions
+
+---
+
+#### UI-02: Layout Thrashing During Animations
+
+**Severity:** Medium
+**Phase:** UI/UX Overhaul
+
+**What goes wrong:** Animations that read layout properties (width, height, offsetTop) during animation cause forced synchronous layouts. Each frame triggers layout recalculation, dropping frames.
+
+**Why it happens:**
+- Reading `getBoundingClientRect()` during animation
+- Framer Motion's `AnimatePresence` measuring exiting elements
+- Mixing layout properties (height, margin) with transforms
+
+**Current codebase state:** No layout-based animations currently. Adding height transitions (accordions, expandable cards) could trigger this.
+
+**Consequences:**
+- 60fps drops to 10-20fps
+- Animations stutter on expand/collapse
+- Visible "jank" that makes UI feel cheap
+
+**Prevention:**
+1. **Only animate transform and opacity** — these don't trigger layout
+2. **Use FLIP technique** for layout changes — measure once, animate transforms
+3. **Avoid animating height** — use `max-height` with overflow, or scale transforms
+4. **Batch DOM reads/writes** — read all measurements, then write all changes
+
+```typescript
+// FLIP: First, Last, Invert, Play
+const first = element.getBoundingClientRect();
+// ... trigger layout change ...
+const last = element.getBoundingClientRect();
+const deltaX = first.left - last.left;
+element.animate([
+  { transform: `translateX(${deltaX}px)` },
+  { transform: 'translateX(0)' }
+], { duration: 200 });
+```
+
+**Warning signs:**
+- DevTools Performance panel shows long "Layout" tasks
+- Purple bars in frame graph during animations
+- Height/width animations stuttering
+
+---
+
+#### UI-03: Animation Library Bundle Weight
+
+**Severity:** Low
+**Phase:** UI/UX Overhaul
+
+**What goes wrong:** Framer Motion adds ~50KB (gzipped) to the bundle. Combined with other animation libraries (spring physics, gesture handling), the frontend bundle grows significantly. Tauri apps should be lightweight.
+
+**Why it happens:**
+- Framer Motion includes spring physics, gesture system, SVG paths
+- Tree-shaking doesn't remove unused features well
+- Multiple animation libraries for different use cases
+
+**Current codebase state:** No animation library currently. Adding one increases bundle by 50-100KB.
+
+**Consequences:**
+- Slower app startup (more JS to parse)
+- Larger installer size
+- Conflicts with Tauri's "lightweight" value proposition
+
+**Prevention:**
+1. **Evaluate if Framer Motion is needed** — CSS animations handle 80% of cases
+2. **Use `motion/react` (Motion One)** — 4KB alternative, lighter than Framer
+3. **Import only what you use** — `import { motion } from 'framer-motion'` not `import * as`
+4. **Measure bundle impact** — `pnpm build && du -h dist/assets/*.js`
+
+**Decision:** CSS transitions + minimal JS for complex animations. Only add Framer Motion if CSS proves insufficient.
+
+**Warning signs:**
+- Bundle size increases >30% after adding animations
+- Multiple animation libraries imported
+- Slow time-to-interactive in cold starts
+
+---
+
+#### UI-04: Inconsistent Animation Timing Across Overhaul
+
+**Severity:** Medium
+**Phase:** UI/UX Overhaul
+
+**What goes wrong:** Different pages animate with different durations, easings, and styles. Install page uses 200ms transitions, settings uses 500ms. Buttons on one page slide, on another they fade. The app feels inconsistent.
+
+**Why it happens:**
+- Multiple developers/phases adding animations independently
+- No design system for motion
+- Copy-pasting animation code with different values
+- "It looked good on this page" without global standards
+
+**Current codebase state:** Existing animations are minimal (`animate-spin`). An overhaul without standards will create inconsistency.
+
+**Consequences:**
+- Unprofessional feel — animations should be invisible, not noticeable
+- User cognitive load from learning different motion patterns
+- Harder to maintain as inconsistencies compound
+
+**Prevention:**
+1. **Define motion tokens** — standard durations (100/200/300/500ms), standard easings
+2. **Create animation variants** — `fadeIn`, `slideUp`, `scaleIn` as reusable configs
+3. **Document motion guidelines** — when to use which animation, how long
+4. **Review animations holistically** — test all pages back-to-back before shipping
+
+```css
+:root {
+  --duration-fast: 100ms;
+  --duration-normal: 200ms;
+  --duration-slow: 300ms;
+  --ease-out: cubic-bezier(0.0, 0.0, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+```
+
+**Warning signs:**
+- Magic numbers for durations in components
+- Different easing functions across pages
+- No shared animation utilities/variants
+
+---
+
+### Channel Management Pitfalls
+
+#### CH-01: OAuth Token Storage Insecurity
+
+**Severity:** Critical
+**Phase:** Channel Management
+
+**What goes wrong:** Discord/Telegram bot tokens stored in plaintext in config files or Tauri store. Any app with file read access can steal tokens. Token theft = full account compromise.
+
+**Why it happens:**
+- `tauri-plugin-store` writes to JSON file — readable by any process
+- Developers treat tokens like config, not secrets
+- No native keychain integration by default
+
+**Current codebase state:** No token storage yet. Channel management will require storing sensitive tokens.
+
+**Consequences:**
+- Bot token theft → attacker controls your Discord bot
+- WhatsApp session theft → attacker can impersonate user
+- API key theft → billing/quota abuse
+
+**Prevention:**
+1. **Use OS keychain** — `tauri-plugin-keychain` or direct Windows Credential Manager / Linux Secret Service APIs
+2. **Never store tokens in tauri-plugin-store** — it's for preferences, not secrets
+3. **Encrypt at rest** — if keychain unavailable, encrypt with machine-specific key
+4. **Limit token scope** — request minimal permissions for each channel
+5. **Token rotation** — implement refresh token flows where available
+
+```rust
+// Use keyring crate for cross-platform secure storage
+use keyring::Entry;
+let entry = Entry::new("openclaw", "discord_token")?;
+entry.set_password(&token)?;
+```
+
+**Warning signs:**
+- Tokens visible in `~/.openclaw/` files
+- No mention of secure storage in channel implementation
+- Tokens logged during debugging
+
+---
+
+#### CH-02: WhatsApp QR Code Pairing Race Conditions
+
+**Severity:** High
+**Phase:** Channel Management
+
+**What goes wrong:** WhatsApp Web pairing requires real-time QR code display. If the QR expires (typically 20-30 seconds) before user scans, pairing fails silently. User keeps scanning an expired QR, nothing happens.
+
+**Why it happens:**
+- WhatsApp QR codes are time-limited
+- No expiration indicator in UI
+- Backend generates QR, doesn't track its validity
+- User is fumbling with phone while QR expires
+
+**Current codebase state:** No WhatsApp integration yet. QR pairing is a known UX challenge.
+
+**Consequences:**
+- Frustrated users who "scanned but nothing happened"
+- Support tickets for "WhatsApp won't connect"
+- Users give up before successfully pairing
+
+**Prevention:**
+1. **Show QR countdown timer** — visible seconds remaining
+2. **Auto-regenerate QR** before expiration — seamless to user
+3. **Clear error state** — "QR expired, generating new one..."
+4. **Pre-flight check** — verify WhatsApp backend is reachable before showing QR
+5. **Test with slow scanners** — elderly users need more time
+
+```typescript
+// QR with auto-refresh
+const [qrData, setQrData] = useState<string | null>(null);
+const [expiresAt, setExpiresAt] = useState<number>(0);
+
+useEffect(() => {
+  const interval = setInterval(() => {
+    if (Date.now() > expiresAt - 5000) { // Refresh 5s before expiry
+      regenerateQR();
+    }
+  }, 1000);
+  return () => clearInterval(interval);
+}, [expiresAt]);
+```
+
+**Warning signs:**
+- Static QR code with no timer
+- No handling for expired QR state
+- QR generation doesn't return expiry timestamp
+
+---
+
+#### CH-03: Channel Connection Status Staleness
+
+**Severity:** Medium
+**Phase:** Channel Management
+
+**What goes wrong:** Channel shows "Connected" but the underlying session expired/died. User thinks agent is responding to messages, but nothing is getting through. Discord bot shows online but webhook is broken.
+
+**Why it happens:**
+- Status cached from last successful check
+- No active health monitoring
+- Backend connection dies but frontend doesn't know
+- Different timeout behaviors per platform (WhatsApp session expires differently than Discord token)
+
+**Current codebase state:** Monitoring page already has status polling patterns (`useOpenClawStatus`). Channel status needs similar treatment.
+
+**Consequences:**
+- Users miss messages because they think agent is active
+- Silent failures erode trust
+- Delayed discovery of broken channels
+
+**Prevention:**
+1. **Active heartbeat per channel** — verify connection is alive, not just "was alive"
+2. **Show last verified time** — "Connected (verified 2 min ago)"
+3. **Different polling intervals per channel type** — WhatsApp needs more frequent checks
+4. **Proactive notifications** — alert user when channel goes unhealthy
+
+```typescript
+// Channel health includes freshness
+interface ChannelStatus {
+  connected: boolean;
+  lastVerified: Date;
+  error?: string;
+}
+
+// Show staleness in UI
+const isStale = Date.now() - lastVerified.getTime() > 5 * 60 * 1000;
+{isStale && <Badge variant="warning">Unverified</Badge>}
+```
+
+**Warning signs:**
+- Status only updated on user action (no polling)
+- No "last checked" timestamp
+- Same status for hours without verification
+
+---
+
+#### CH-04: OAuth Redirect URI Handling on Desktop
+
+**Severity:** High
+**Phase:** Channel Management
+
+**What goes wrong:** OAuth flows (Discord, Slack, Telegram) require redirect URIs. Desktop apps can't use `http://localhost` reliably (port conflicts, firewall issues). Custom protocol handlers (`openclaw://callback`) require OS registration that might fail.
+
+**Why it happens:**
+- OAuth designed for web apps with stable URLs
+- Desktop apps need workarounds: localhost server, custom protocols, or deep links
+- Custom protocol registration varies by OS and can fail silently
+- Windows Defender/firewall may block localhost servers
+
+**Current codebase state:** No OAuth flows yet. Any channel requiring OAuth will hit this.
+
+**Consequences:**
+- OAuth flow opens browser, callback never arrives
+- Users stuck on "Waiting for authorization..." forever
+- Works for developer (protocol registered), fails for user (not registered)
+
+**Prevention:**
+1. **Use Tauri's deep link plugin** — handles protocol registration properly
+2. **Fallback to copy-paste token** — manual flow if OAuth fails
+3. **Test on fresh installs** — don't rely on dev machine registrations
+4. **Timeout with clear error** — "Didn't receive callback within 2 minutes. Try manual setup."
+5. **Verify protocol handler** before starting OAuth — `tauri-plugin-deep-link` can check
+
+```rust
+// Check if protocol is registered before starting OAuth
+if !is_protocol_registered("openclaw") {
+    register_protocol("openclaw")?;
+}
+```
+
+**Warning signs:**
+- OAuth works in dev, fails after fresh install
+- No timeout on OAuth waiting screen
+- No manual fallback for token entry
+
+---
+
+#### CH-05: Rate Limiting and API Abuse
+
+**Severity:** Medium
+**Phase:** Channel Management
+
+**What goes wrong:** Polling channel status too frequently triggers rate limits. Discord: 50 requests/second. Telegram: 30 messages/second. Hitting limits causes temporary bans, making the channel appear broken.
+
+**Why it happens:**
+- Aggressive polling intervals (every second)
+- No request deduplication (multiple components polling same endpoint)
+- No exponential backoff on errors
+- Testing with rapid UI interactions
+
+**Current codebase state:** Monitoring uses 15-60 second polling intervals. Channel status might tempt faster polling.
+
+**Consequences:**
+- 429 errors from platform APIs
+- Temporary bans (minutes to hours)
+- Channel appears "broken" when it's just rate-limited
+
+**Prevention:**
+1. **Respect documented rate limits** — Discord, Telegram, Slack all publish limits
+2. **Use exponential backoff** on errors — double delay on each retry
+3. **Centralize API calls** — single source of truth for channel status
+4. **Cache aggressively** — status doesn't change every second
+5. **Implement circuit breaker** — stop calling after repeated failures
+
+```typescript
+// TanStack Query handles this well
+useQuery({
+  queryKey: ['channel', channelId, 'status'],
+  queryFn: fetchChannelStatus,
+  refetchInterval: 30_000, // Not too aggressive
+  retry: 3,
+  retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 30000),
+});
+```
+
+**Warning signs:**
+- 429 errors in logs
+- Polling intervals under 10 seconds for external APIs
+- No backoff on errors
+
+---
+
+## Integration Pitfalls (Adding Features to Existing System)
+
+### INT-01: Breaking Existing Progress Flow
+
+**Severity:** High
+**Phase:** Log Streaming Implementation
+
+**What goes wrong:** Log streaming replaces fake percentage progress. But the UI was designed around percentage — progress bar, "45% complete" text. Switching to log-based progress without updating UI leaves mismatched states.
+
+**Current codebase state:** `StepInstall.tsx` shows `Progress` component driven by `progress.percent`. `docker_install.rs` emits synthetic percentages. Both need coordinated changes.
+
+**Prevention:**
+1. **Design new progress model first** — logs + optional percentage + phases
+2. **Update UI to handle both** — percentage OR log-based progress
+3. **Feature flag the change** — toggle between old/new progress
+4. **Don't remove old code until new is stable**
+
+---
+
+### INT-02: Animation Breaking Accessibility
+
+**Severity:** Medium
+**Phase:** UI/UX Overhaul
+
+**What goes wrong:** Adding animations breaks keyboard navigation (focus lost during transitions), screen reader announcements (elements announced mid-animation), and reduced-motion preferences (ignored).
+
+**Current codebase state:** Current UI is functional without animations. Adding motion without accessibility consideration creates regressions.
+
+**Prevention:**
+1. **Respect `prefers-reduced-motion`** — disable or minimize animations
+2. **Maintain focus during transitions** — focus trap during modals
+3. **Use `aria-live` for status updates** — screen readers announce changes
+4. **Test with keyboard only** — complete full flow without mouse
+
+```css
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+```
+
+---
+
+### INT-03: Channel State Interfering with Install State
+
+**Severity:** Medium
+**Phase:** Channel Management
+
+**What goes wrong:** Channel management adds new state (connected channels, pending pairings). This state interacts with install state — can't configure channels if not installed, channel status depends on OpenClaw running. Improper state separation causes bugs.
+
+**Current codebase state:** `useOnboardingStore` manages install wizard state. `useOpenClawStatus` tracks runtime state. Channels need both.
+
+**Prevention:**
+1. **Clear state dependencies** — channels require `OpenClawStatus.Running`
+2. **Disable channel UI when not applicable** — grey out if not installed
+3. **Separate stores** — don't mix channel state with install state
+4. **Handle state transitions** — what happens to channels when OpenClaw stops?
+
+---
+
+## Critical Pitfalls (From v1.0 Research)
 
 ### Pitfall 1: Docker Desktop Is Not a Stable Dependency
 
@@ -361,23 +977,32 @@ Three sources of real-world postmortems were particularly informative:
 
 ---
 
-## Phase-Specific Warnings
+## v1.1 Phase Mapping Summary
 
-| Phase Topic | Likely Pitfall | Mitigation |
-|-------------|---------------|------------|
-| Docker health checks | Assuming Docker is always available | Check before every operation, cache state |
-| Windows installation | WSL2 not configured / virtualization disabled | Pre-flight checks with clear error messages |
-| Service registration | Wrong ExecStart paths for non-standard npm layouts | Use `which`/absolute paths, verify after write |
-| Config editing | YAML parser differences / type coercion | Schema validation, round-trip testing |
-| Auto-updater | Race conditions with multiple instances | Global locking, version verification |
-| Sandboxing | Overly broad Tauri permissions | Capability scoping, least privilege |
-| Uninstall | Orphaned state files | Document all state locations, clean all |
-| Error reporting | Cryptic technical errors | Translate to user-friendly messages |
+| Pitfall ID | Name | Severity | Phase to Address |
+|------------|------|----------|------------------|
+| LS-01 | Event Listener Memory Leaks | Critical | Log Streaming |
+| LS-02 | Unbounded Log Buffer Growth | High | Log Streaming |
+| LS-03 | Tauri Event Channel Backpressure | Medium | Log Streaming |
+| LS-04 | Stream Cleanup on Cancellation | High | Log Streaming |
+| UI-01 | GPU Compositing Layer Explosion | High | UI/UX Overhaul |
+| UI-02 | Layout Thrashing During Animations | Medium | UI/UX Overhaul |
+| UI-03 | Animation Library Bundle Weight | Low | UI/UX Overhaul |
+| UI-04 | Inconsistent Animation Timing | Medium | UI/UX Overhaul |
+| CH-01 | OAuth Token Storage Insecurity | Critical | Channel Management |
+| CH-02 | WhatsApp QR Code Pairing Race | High | Channel Management |
+| CH-03 | Channel Connection Status Staleness | Medium | Channel Management |
+| CH-04 | OAuth Redirect URI Handling | High | Channel Management |
+| CH-05 | Rate Limiting and API Abuse | Medium | Channel Management |
+| INT-01 | Breaking Existing Progress Flow | High | Log Streaming |
+| INT-02 | Animation Breaking Accessibility | Medium | UI/UX Overhaul |
+| INT-03 | Channel State Interfering with Install | Medium | Channel Management |
 
 ---
 
 ## Sources
 
+### v1.0 Sources
 - [Docker Desktop troubleshooting](https://oneuptime.com/blog/post/2026-02-08-how-to-troubleshoot-docker-desktop-not-starting/view) (2026-02-08) — HIGH confidence, comprehensive
 - [Docker Desktop WSL error issue #14618](https://github.com/docker/for-win/issues/14618) (2025-02-19) — HIGH confidence, official issue tracker
 - [OpenClaw installation troubleshooting](http://coclaw.com/guides/openclaw-installation-troubleshooting) (2026-03-02) — HIGH confidence, OpenClaw-specific
@@ -390,3 +1015,11 @@ Three sources of real-world postmortems were particularly informative:
 - [YAML config pitfalls article](https://medium.com/@aniruddhasonawane/the-configuration-change-that-passed-code-review-and-still-broke-everything) (2026-01-20) — MEDIUM confidence, general config wisdom
 - [Tauri security documentation](https://tauri.app/security/) (2025-02-22) — HIGH confidence, official docs
 - [Tauri capabilities documentation](https://tauri.app/security/capabilities) (2025-08-01) — HIGH confidence, official docs
+
+### v1.1 Sources (Domain Knowledge)
+- Tauri event system documentation — event listener cleanup patterns
+- React useEffect cleanup — standard React patterns for resource cleanup
+- bollard crate documentation — Docker streaming API behavior
+- CSS GPU compositing — Web platform animation performance characteristics
+- OAuth 2.0 for desktop apps (RFC 8252) — redirect URI handling for native apps
+- Platform API rate limit documentation (Discord, Telegram, Slack) — published limits

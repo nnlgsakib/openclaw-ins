@@ -1,223 +1,376 @@
 # Technology Stack
 
 **Project:** OpenClaw Desktop Installer (Tauri v2 Desktop App)
-**Researched:** 2026-03-25
+**Researched:** 2026-03-26
 **Confidence:** HIGH
-
-## Recommended Stack
-
-### Core Framework
-
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| **Tauri** | 2.10.x | Desktop app runtime | Chosen over Electron (5-15MB vs 150-200MB bundles, <1s startup, Rust security model). v2 is stable with mature plugin ecosystem. |
-| **React** | 19.x | Frontend UI framework | Dominant ecosystem (91% adoption), shadcn/ui only supports React, Zustand+TanStack Query stack is React-native, largest talent pool. Svelte 5 and SolidJS are faster but lack ecosystem depth for this project's needs. |
-| **TypeScript** | 5.x | Type safety | Non-negotiable for IPC type safety between React frontend and Rust backend. Catches serde serialization mismatches at compile time. |
-| **Vite** | 8.0.x | Build tool & dev server | Now ships with Rolldown (Rust-based bundler), 10-30x faster builds than Vite 7, first-class Tauri integration. |
-| **Rust** | stable (1.87+) | Backend language | Required by Tauri. Memory safety, fearless concurrency, Tokio async runtime for Docker/process management. |
-
-### Styling & UI Components
-
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| **Tailwind CSS** | 4.2.x | Utility-first CSS | v4 is a ground-up rewrite with Rust-based engine (5x faster), CSS-native `@theme` config, zero PostCSS dependency. The standard for 2026. |
-| **shadcn/ui** | latest | Component collection | Not a library—copy-paste components you own. Built on Radix UI primitives (accessible, headless) + Tailwind. 65K+ GitHub stars, used by Vercel/Supabase. Provides forms, dialogs, tables, navigation out of the box. |
-| **Radix UI** | latest | Headless primitives | Foundation that shadcn/ui builds on. Handles keyboard nav, focus management, ARIA. We consume via shadcn/ui, not directly. |
-| **Lucide Icons** | latest | Icon library | Clean, consistent SVG icons. Pairs well with Tailwind/shadcn stack. ~1500 icons covering all UI needs. |
-
-### State Management
-
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| **Zustand** | 5.x | Global client state | ~1KB, no providers, no boilerplate. Manages UI state (sidebar, modals, selected items), auth session, user preferences. The 2026 consensus for client state. |
-| **TanStack Query** | 5.x | Server/async state | ~5M weekly downloads. Handles Tauri command results as "server state"—caching, loading states, error handling, background refetch, optimistic updates. Prevents the anti-pattern of storing async results in Zustand. |
-
-**The layered model:**
-```
-Layer 1: Tauri command results → TanStack Query (cache, loading, errors)
-Layer 2: Global UI state       → Zustand (sidebar, modals, selections)
-Layer 3: Local component state → useState / useReducer
-Layer 4: Persistent settings   → tauri-plugin-store
-```
-
-### Rust Backend Crates
-
-| Crate | Version | Purpose | When to Use |
-|-------|---------|---------|-------------|
-| **bollard** | 0.20.x | Docker API client | All Docker operations: check/install Docker, create/manage containers, pull images, manage volumes. Async via Tokio. Supports Unix sockets + Windows named pipes. |
-| **tokio** | 1.x | Async runtime | Required by Tauri. All async Rust commands run on Tokio's thread pool. Use `#[tokio::process::Command]` for spawning child processes. |
-| **serde** | 1.x | Serialization | IPC data types. Use `#[serde(rename_all = "camelCase")]` on structs shared with frontend—Rust snake_case ↔ JS camelCase bridge. |
-| **serde_json** | 1.x | JSON handling | Parse OpenClaw config files (YAML→JSON bridge if needed), Docker API responses. |
-| **thiserror** | 2.x | Error types | Define domain-specific errors (DockerError, InstallError, ConfigError). Structured error propagation to frontend. |
-| **anyhow** | 1.x | Error context | Application-level error handling with context chains. Use in command implementations. |
-| **process-wrap** | 9.1.x | Process management | Composable process wrappers: process groups, kill-on-drop, cross-platform (POSIX + Windows job objects). For managing long-running OpenClaw/Docker processes. |
-| **reqwest** | 0.13.x | HTTP client | Download OpenClaw releases, check for updates, GitHub API calls. Async with Tokio. |
-
-### Tauri Plugins (Official)
-
-| Plugin | Version | Purpose | Notes |
-|--------|---------|---------|-------|
-| **tauri-plugin-shell** | 2.3.x | Spawn child processes | Execute shell commands, manage long-running processes. Scoped permissions via capabilities. Primary mechanism for running CLI tools. |
-| **tauri-plugin-dialog** | 2.6.x | Native system dialogs | File pickers, confirmation dialogs, alerts. Use XDG portal on Linux for Flatpak compatibility. |
-| **tauri-plugin-store** | 2.4.x | Persistent key-value store | App settings, user preferences, last-known state. Async file-based persistence. |
-| **tauri-plugin-updater** | 2.10.x | Auto-update | Self-update the installer app itself. Supports static JSON endpoints or update servers. |
-| **tauri-plugin-fs** | latest | Filesystem access | Scoped file operations. Read/write OpenClaw configs, manage workspace directories. |
-| **tauri-plugin-notification** | latest | System notifications | Notify user of install progress, updates available, errors. |
-| **tauri-plugin-process** | 2.3.x | Process control | App exit/relaunch after updates. |
-
-### Development Tools
-
-| Tool | Purpose | Notes |
-|------|---------|-------|
-| **pnpm** | Package manager | Fast, disk-efficient. Use for frontend deps. |
-| **Cargo** | Rust package manager | Standard for Rust. |
-| **rust-analyzer** | Rust LSP | Essential for IDE support. |
-| **Tauri CLI** (`@tauri-apps/cli`) | Dev/build tooling | `npm run tauri dev`, `npm run tauri build`. |
-| **ESLint + Prettier** | Linting/formatting | Standard React/TS tooling. |
-| **Vitest** | Frontend testing | Fast, Vite-native test runner. Mock `invoke` for unit tests. |
-| **GitHub Actions** | CI/CD | `tauri-apps/tauri-action` for cross-platform builds. Matrix strategy for Win/Linux/macOS. |
-
-## Installation
-
-```bash
-# Scaffold project (choose React + TypeScript)
-npm create tauri-app@latest openclaw-desktop -- --template react-ts
-
-# Frontend dependencies
-cd openclaw-desktop
-pnpm add @tauri-apps/api @tauri-apps/plugin-shell @tauri-apps/plugin-dialog \
-  @tauri-apps/plugin-store @tauri-apps/plugin-updater @tauri-apps/plugin-fs \
-  @tauri-apps/plugin-notification @tauri-apps/plugin-process \
-  zustand @tanstack/react-query lucide-react
-
-# Dev dependencies
-pnpm add -D @tauri-apps/cli tailwindcss @tailwindcss/vite \
-  @radix-ui/react-dialog @radix-ui/react-select @radix-ui/react-tabs \
-  typescript vitest @testing-library/react
-
-# shadcn/ui components (after setup)
-npx shadcn-ui@latest init
-npx shadcn-ui@latest add button card dialog input select tabs toast
-
-# Rust dependencies (add to Cargo.toml)
-# bollard = "0.20"
-# tokio = { version = "1", features = ["full"] }
-# serde = { version = "1", features = ["derive"] }
-# serde_json = "1"
-# thiserror = "2"
-# anyhow = "1"
-# process-wrap = { version = "9.1", features = ["tokio1"] }
-# reqwest = { version = "0.13", features = ["json"] }
-```
-
-## Alternatives Considered
-
-| Category | Recommended | Alternative | When to Use Alternative |
-|----------|-------------|-------------|-------------------------|
-| Frontend | React 19 | Svelte 5 | If team is Svelte-native and no shadcn/ui needed. Svelte has smaller bundles and better Tauri affinity (compile-time optimized). But shadcn/ui ecosystem is a hard requirement for this project. |
-| Frontend | React 19 | SolidJS 1.9 | For performance-critical dashboards with heavy re-renders. SolidJS has fine-grained reactivity (no virtual DOM). But ecosystem is too small (~2-4% adoption). |
-| UI Components | shadcn/ui | Mantine | If you want a traditional component library with more pre-built complex components (date pickers, rich text editors). But adds runtime dependency weight. |
-| UI Components | shadcn/ui | Ant Design | For enterprise-heavy data tables/forms. But too opinionated visually for a consumer desktop app. |
-| CSS | Tailwind v4 | CSS Modules | If team prefers scoped CSS without utility classes. But Tailwind v4's speed and shadcn/ui integration make it the clear default. |
-| State | Zustand | Redux Toolkit | For large teams (10+ devs) needing strict action/reducer patterns. Overkill for this project size. |
-| Docker | bollard | docker-cli wrapper | Shelling out to `docker` CLI is simpler but loses type safety, error handling, and progress streaming. bollard provides typed Rust API over Docker socket. |
-| Process | process-wrap | std::process::Command | For simple one-shot commands. But process-wrap gives cross-platform process groups, kill-on-drop, and Windows job objects—critical for managing OpenClaw lifecycle. |
-
-## What NOT to Use
-
-| Avoid | Why | Use Instead |
-|-------|-----|-------------|
-| **Electron** | 150-200MB bundles, 300-500MB RAM, ships entire Chromium | Tauri v2 (5-15MB, native webview) |
-| **Redux** | Massive boilerplate, overkill for this state complexity | Zustand + TanStack Query |
-| **styled-components / Emotion** | Runtime CSS-in-JS overhead, dying ecosystem | Tailwind CSS v4 |
-| **Material UI (MUI)** | Heavy runtime, hard to customize, doesn't match desktop UX patterns | shadcn/ui (you own the code) |
-| **Webpack** | Slow, complex config, being replaced | Vite 8 (Rolldown-based) |
-| **JavaScript (no types)** | IPC type mismatches between React and Rust will cause runtime bugs | TypeScript with shared type definitions |
-| **npm** | Slower than pnpm, phantom dependency issues | pnpm |
-| **Dockerode (Node)** | This is a Rust backend, not Node.js | bollard (Rust Docker client) |
-| **reqwest + manual JSON** | For Tauri commands, use Tauri's built-in invoke/IPC | Tauri commands via `#[tauri::command]` |
-| **React Context for all state** | Causes unnecessary re-renders, no caching | Zustand (frequent updates) + TanStack Query (async) |
-
-## Stack Patterns for This Project
-
-### Pattern: Tauri Command → TanStack Query
-
-Every Rust command exposed to the frontend should be wrapped in a TanStack Query hook:
-
-```typescript
-// hooks/useDockerStatus.ts
-import { useQuery } from '@tanstack/react-query'
-import { invoke } from '@tauri-apps/api/core'
-
-export function useDockerStatus() {
-  return useQuery({
-    queryKey: ['docker', 'status'],
-    queryFn: () => invoke<DockerStatus>('check_docker_status'),
-    refetchInterval: 30000, // Poll every 30s
-  })
-}
-```
-
-### Pattern: Rust State with Mutex
-
-```rust
-use std::sync::Arc;
-use tokio::sync::Mutex;
-use tauri::Manager;
-
-struct AppState {
-    docker: Arc<Mutex<Option<bollard::Docker>>>,
-    install_progress: Arc<Mutex<InstallProgress>>,
-}
-
-// Register at startup
-tauri::Builder::default()
-    .manage(AppState { ... })
-```
-
-### Pattern: Serde Bridge
-
-Always rename Rust structs for JS idioms:
-
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct InstallConfig {
-    pub install_method: InstallMethod,  // JS gets installMethod
-    pub workspace_path: String,
-    pub sandbox_enabled: bool,
-}
-```
-
-## Version Compatibility
-
-| Package | Compatible With | Notes |
-|---------|-----------------|-------|
-| Tauri 2.10.x | @tauri-apps/api 2.10.x | JS and Rust versions must match |
-| Tailwind v4 | shadcn/ui (latest) | shadcn officially supports v4 as of Feb 2025 |
-| Vite 8 | @tailwindcss/vite 4.2.x | Tailwind v4.2.2 added Vite 8 support |
-| React 19 | TanStack Query 5.x | Full compatibility |
-| React 19 | Zustand 5.x | Full compatibility |
-| bollard 0.20 | tokio 1.x | Both use Tokio async runtime |
-| Tauri plugins 2.x | tauri 2.10.x | All official plugins track Tauri v2 releases |
-| process-wrap 9.1 | tokio 1.x | Enable `tokio1` feature flag |
-
-## Sources
-
-- [Tauri v2 Release Page](https://v2.tauri.app/release/) — tauri v2.10.3 confirmed latest stable (HIGH)
-- [Tauri v2 Shell Plugin](https://v2.tauri.app/plugin/shell/) — Official docs, process management (HIGH)
-- [Tauri v2 Store Plugin](https://v2.tauri.app/plugin/store/) — Official docs, persistence (HIGH)
-- [Tauri v2 Capabilities](https://v2.tauri.app/security/capabilities/) — Security model (HIGH)
-- [bollard on crates.io](https://crates.io/crates/bollard) — v0.20.1, Docker API client (HIGH)
-- [process-wrap on crates.io](https://crates.io/crates/process-wrap) — v9.1.0, process management (HIGH)
-- [Vite 8 Announcement](https://vite.dev/blog/announcing-vite8) — Rolldown integration, March 2026 (HIGH)
-- [Tailwind v4.2.2 Release](https://github.com/tailwindlabs/tailwindcss/releases/tag/v4.2.2) — Vite 8 support (HIGH)
-- [shadcn/ui Guide 2026](https://designrevision.com/blog/shadcn-ui-guide) — Ecosystem status (MEDIUM)
-- [React State Management 2026](https://ncctcr.com/blog/react-state-management-2026) — Zustand + TanStack Query pattern (MEDIUM)
-- [Tauri + Svelte Stack](https://medium.com/@puneetpm/native-apps-reimagined-why-tauri-rust-and-svelte-is-my-go-to-stack-in-2025-209f5b2937a1) — Alternative framework consideration (MEDIUM)
-- [ClawPier Reddit](https://www.reddit.com/r/rust/comments/1rztfsz/clawpier_a_tauri_v2_desktop_app_for_managing/) — Real Tauri v2 + bollard Docker manager app (MEDIUM)
 
 ---
 
-*Stack research for: OpenClaw Desktop Installer (Tauri v2)*
-*Researched: 2026-03-25*
+## v1.1 Stack Additions
+
+This document covers **only the new capabilities** needed for v1.1 features. The existing stack (Tauri v2, React 19, TypeScript, Tailwind v4, shadcn/ui, Zustand, TanStack Query, bollard, Vite 8) remains unchanged.
+
+### New Feature Areas
+
+| Feature | What's Needed | Why |
+|---------|---------------|-----|
+| Real-time Docker log streaming | Tauri Channels, bollard streaming API | Replace fake percentages with actual Docker pull progress |
+| Animations & micro-interactions | Motion library, shadcn animation components | Modern, interactive UI feel |
+| Channel management UI | QR code component, additional shadcn components | WhatsApp pairing, visual channel status |
+
+---
+
+## 1. Real-Time Log Streaming
+
+### Backend: Use Existing Stack (No Changes)
+
+The current stack **already supports real-time streaming**:
+
+| Component | Version | Capability | Notes |
+|-----------|---------|------------|-------|
+| **bollard** | 0.20.2 | Docker event/log streaming | `logs()` returns `Stream<Result<LogOutput>>`, `image_pull()` streams `CreateImageInfo` progress events |
+| **futures-util** | 0.3 | Stream processing | Already in Cargo.toml, provides `StreamExt` for `.next()` |
+| **tokio** | 1.50.0 | Async runtime | Already handles streams |
+
+### Tauri Channel API (No New Dependencies)
+
+**Use Tauri's built-in Channel for high-throughput streaming** instead of events:
+
+```rust
+// Rust: Stream Docker pull progress via Channel
+use tauri::ipc::Channel;
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase", tag = "type")]
+pub enum DockerProgress {
+    LayerDownloading { id: String, current: u64, total: u64 },
+    LayerComplete { id: String },
+    Extracting { id: String, current: u64, total: u64 },
+    Complete,
+    Error { message: String },
+}
+
+#[tauri::command]
+async fn install_with_progress(
+    on_progress: Channel<DockerProgress>,
+) -> Result<(), String> {
+    // Stream Docker image pull events
+    let mut stream = docker.create_image(options, None, None);
+    while let Some(result) = stream.next().await {
+        match result {
+            Ok(info) => on_progress.send(DockerProgress::from(info)).unwrap(),
+            Err(e) => on_progress.send(DockerProgress::Error { message: e.to_string() }).unwrap(),
+        }
+    }
+    Ok(())
+}
+```
+
+```typescript
+// TypeScript: Listen to Channel
+import { Channel } from '@tauri-apps/api/core';
+
+const onProgress = new Channel<DockerProgress>();
+onProgress.onmessage = (event) => {
+  switch (event.type) {
+    case 'layerDownloading':
+      updateLayerProgress(event.id, event.current, event.total);
+      break;
+    case 'complete':
+      setInstallComplete(true);
+      break;
+  }
+};
+await invoke('install_with_progress', { onProgress });
+```
+
+**Why Channels over Events:**
+- Designed for streaming (ordered, fast)
+- Type-safe payload via generics
+- Automatic cleanup when command completes
+- No need for `unlisten()` management
+
+### What NOT to Add
+
+| Avoid | Why |
+|-------|-----|
+| WebSocket crates | Tauri Channels solve the same problem natively |
+| Server-Sent Events | Adds HTTP server complexity |
+| Polling with `refetchInterval: 100ms` | Inefficient, poor UX compared to push |
+
+---
+
+## 2. Animations & Micro-Interactions
+
+### Frontend: Motion Library
+
+| Package | Version | Purpose | Why Recommended |
+|---------|---------|---------|-----------------|
+| **motion** | 12.x | React animations | Formerly framer-motion. Spring physics, layout animations, gesture support. De facto standard for React animation (65K+ GitHub stars). |
+
+**Verified Version:** 12.38.0 (March 2026)
+
+```bash
+pnpm add motion
+```
+
+**Key features for v1.1:**
+- `motion.div` for enter/exit animations
+- `AnimatePresence` for route transitions
+- `useSpring` for smooth progress bars
+- `whileHover`, `whileTap` for micro-interactions
+- `layout` prop for auto-animated reflows
+- `variants` for orchestrated animations
+
+### shadcn/ui Animation Components (Already Available)
+
+These components are already in the shadcn registry and can be added without new packages:
+
+| Component | Use Case | Installation |
+|-----------|----------|--------------|
+| **Skeleton** | Loading placeholders | `npx shadcn-ui@latest add skeleton` |
+| **Progress** | Already installed | Built-in |
+| **Spinner** | Button/inline loading | `npx shadcn-ui@latest add spinner` |
+| **Collapsible** | Expandable sections | `npx shadcn-ui@latest add collapsible` |
+
+### Sonner for Toast Animations
+
+| Package | Version | Purpose | Notes |
+|---------|---------|---------|-------|
+| **sonner** | 2.0.7 | Toast notifications | Already in package.json, has built-in animations |
+
+**Verified Version:** 2.0.7 (August 2025) - Already installed
+
+### Animation Patterns for v1.1
+
+```typescript
+// Page transition wrapper
+import { motion, AnimatePresence } from 'motion/react';
+import { useLocation } from 'react-router-dom';
+
+export function AnimatedRoutes({ children }) {
+  const location = useLocation();
+  return (
+    <AnimatePresence mode="wait">
+      <motion.div
+        key={location.pathname}
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -10 }}
+        transition={{ duration: 0.15 }}
+      >
+        {children}
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
+// Micro-interaction button
+<motion.button
+  whileHover={{ scale: 1.02 }}
+  whileTap={{ scale: 0.98 }}
+  className="..."
+>
+  Install
+</motion.button>
+
+// Spring-animated progress bar
+import { motion, useSpring, useTransform } from 'motion/react';
+
+function SmoothProgress({ value }: { value: number }) {
+  const spring = useSpring(value, { stiffness: 100, damping: 20 });
+  return (
+    <motion.div
+      className="h-2 bg-primary rounded-full"
+      style={{ width: useTransform(spring, v => `${v}%`) }}
+    />
+  );
+}
+```
+
+### What NOT to Add
+
+| Avoid | Why | Use Instead |
+|-------|-----|-------------|
+| **@formkit/auto-animate** | Less control than Motion, no spring physics | motion |
+| **react-spring** | Motion is newer, better maintained, same features | motion |
+| **Lottie** | Overkill for UI micro-interactions (designed for complex illustrations) | motion + CSS |
+| **GSAP** | Too heavy, designed for marketing sites | motion |
+| **tailwindcss-animate** | CSS-only animations lack spring physics, interruptibility | motion |
+| **anime.js** | Lower-level, more boilerplate | motion |
+
+---
+
+## 3. Channel Management UI
+
+### QR Code Component for WhatsApp Pairing
+
+| Package | Version | Purpose | Notes |
+|---------|---------|---------|-------|
+| **react-qr-code** | 2.0.18 | QR code generation | Lightweight (4KB), SVG output, React 19 compatible, no canvas dependency |
+
+**Verified Version:** 2.0.18 (July 2025)
+
+```bash
+pnpm add react-qr-code
+```
+
+```typescript
+import QRCode from 'react-qr-code';
+
+function WhatsAppPairing({ pairingCode }: { pairingCode: string }) {
+  return (
+    <div className="p-4 bg-white rounded-lg">
+      <QRCode value={pairingCode} size={200} level="M" />
+    </div>
+  );
+}
+```
+
+**Why react-qr-code over alternatives:**
+- Pure SVG (no canvas, better accessibility)
+- 4KB gzipped vs 15KB+ for qrcode.react
+- Actively maintained (July 2025 release)
+- No peer dependencies
+
+### Additional shadcn/ui Components
+
+Add these for channel management UI:
+
+| Component | Use Case | Installation |
+|-----------|----------|--------------|
+| **Avatar** | Channel icons (WhatsApp, Telegram logos) | `npx shadcn-ui@latest add avatar` |
+| **Drawer** | Mobile-friendly channel setup panel | `npx shadcn-ui@latest add drawer` |
+| **Tabs** | Switch between channels | `npx shadcn-ui@latest add tabs` |
+| **Input OTP** | Bot token entry | `npx shadcn-ui@latest add input-otp` |
+| **Empty** | No channels connected state | `npx shadcn-ui@latest add empty` |
+| **Separator** | Visual dividers | Already installed |
+| **Tooltip** | Already installed | Channel status hints |
+
+### Channel State Pattern
+
+```typescript
+// types/channels.ts
+export type ChannelType = 'whatsapp' | 'telegram' | 'discord' | 'slack';
+
+export type ChannelStatus =
+  | { state: 'disconnected' }
+  | { state: 'pairing'; qrCode?: string; expiresAt?: string }
+  | { state: 'connected'; connectedAt: string; lastMessage?: string }
+  | { state: 'error'; message: string };
+
+export interface Channel {
+  id: string;
+  type: ChannelType;
+  name: string;
+  status: ChannelStatus;
+}
+
+// Store in Zustand for UI state, backend manages persistence
+```
+
+### What NOT to Add
+
+| Avoid | Why |
+|-------|-----|
+| **qrcode.react** | Larger bundle, canvas-based |
+| **Socket.io client** | Use Tauri events/channels for backend communication |
+| **External OAuth libraries** | Channels use QR/token pairing, not OAuth |
+
+---
+
+## Installation Summary
+
+### New npm Dependencies
+
+```bash
+# Animation
+pnpm add motion
+
+# QR codes
+pnpm add react-qr-code
+```
+
+### New shadcn Components
+
+```bash
+npx shadcn-ui@latest add skeleton spinner collapsible avatar drawer tabs input-otp empty
+```
+
+### Rust Dependencies
+
+**No new Cargo dependencies required.** The existing stack handles everything:
+- `bollard` 0.20.2 for Docker streaming
+- `futures-util` 0.3 for stream processing
+- `tauri` 2.x for Channel IPC
+
+---
+
+## Version Compatibility Matrix
+
+| Package | Version | Compatible With |
+|---------|---------|-----------------|
+| motion | 12.38.0 | React 19.x |
+| react-qr-code | 2.0.18 | React 19.x |
+| sonner | 2.0.7 | React 19.x (already installed) |
+| bollard | 0.20.2 | tokio 1.x (already installed) |
+| @tauri-apps/api | 2.x | Channel API included |
+
+---
+
+## Architecture Notes
+
+### Log Streaming Flow
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ Frontend (React)                                            │
+│  ┌─────────────┐     ┌──────────────┐     ┌─────────────┐  │
+│  │ InstallPage │────▶│ Channel<T>   │────▶│ Progress UI │  │
+│  └─────────────┘     │ .onmessage   │     │ (motion)    │  │
+│         │            └──────────────┘     └─────────────┘  │
+│         │ invoke('install_with_progress', { onProgress })  │
+└─────────│───────────────────────────────────────────────────┘
+          │
+          ▼
+┌─────────────────────────────────────────────────────────────┐
+│ Backend (Rust/Tauri)                                        │
+│  ┌─────────────┐     ┌──────────────┐     ┌─────────────┐  │
+│  │ Command     │────▶│ bollard      │────▶│ Docker API  │  │
+│  │ handler     │     │ .logs()      │     │ (Unix sock) │  │
+│  └─────────────┘     │ .create_img  │     └─────────────┘  │
+│         │            └──────────────┘                       │
+│         │ channel.send(DockerProgress::...)                │
+│         ▼                                                   │
+│  ┌─────────────┐                                           │
+│  │ Tauri IPC   │ ◀─── JSON serialization via serde         │
+│  └─────────────┘                                           │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Animation Strategy
+
+| Area | Approach |
+|------|----------|
+| Page transitions | `AnimatePresence` + `motion.div` with fade/slide |
+| Progress bars | `useSpring` for smooth interpolation |
+| Cards/lists | `layout` prop for reflow animations |
+| Buttons | `whileHover`/`whileTap` scale transforms |
+| Loading states | Skeleton shimmer + Spinner |
+| Toasts | Sonner's built-in animations (already configured) |
+
+---
+
+## Sources
+
+- [Tauri v2 Calling Frontend](https://v2.tauri.app/develop/calling-frontend/) - Channel API documentation (HIGH)
+- [motion.dev](https://motion.dev/) - Motion library v12.38.0 verified (HIGH)
+- [bollard docs.rs](https://docs.rs/bollard/latest/bollard/) - v0.20.2 streaming API (HIGH)
+- [react-qr-code GitHub](https://github.com/rosskhanas/react-qr-code) - v2.0.18 (July 2025) (HIGH)
+- [sonner GitHub](https://github.com/emilkowalski/sonner) - v2.0.7 (August 2025) (HIGH)
+- [shadcn/ui Components](https://ui.shadcn.com/docs/components) - Full component list (HIGH)
+
+---
+
+*Stack additions for: OpenClaw Desktop v1.1 (UX Polish & Channels)*
+*Researched: 2026-03-26*

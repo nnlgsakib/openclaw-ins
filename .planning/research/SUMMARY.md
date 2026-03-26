@@ -1,11 +1,94 @@
-# Project Research Summary
+# Research Summary
 
 **Project:** OpenClaw Desktop Installer (Tauri v2 Desktop App)
 **Domain:** Desktop GUI installer/manager for CLI-based AI agent platform with Docker sandboxing
-**Researched:** 2026-03-25
+**Last Updated:** 2026-03-26 (v1.1 research)
 **Confidence:** HIGH
 
-## Executive Summary
+---
+
+## v1.1 Research Summary: UX Polish & Channels
+
+### Stack Additions
+
+**New npm Dependencies:**
+
+| Package | Version | Purpose |
+|---------|---------|---------|
+| **motion** | 12.38.0 | React animations (spring physics, layout, exit) |
+| **react-qr-code** | 2.0.18 | WhatsApp QR pairing (4KB, SVG-based) |
+
+**New shadcn Components:**
+```bash
+npx shadcn-ui@latest add skeleton spinner collapsible avatar drawer tabs input-otp empty
+```
+
+**No New Rust Dependencies** — existing stack (bollard 0.20.2, futures-util 0.3, Tauri Channels) handles everything.
+
+### Feature Table Stakes vs Differentiators
+
+#### Real-Time Log Streaming
+
+| Table Stakes | Differentiators |
+|-------------|-----------------|
+| Show actual Docker pull progress | Per-layer progress bars |
+| Layer download status visible | Estimated time remaining |
+| Auto-scroll to latest log | Collapsible log sections |
+
+#### UI/UX Polish
+
+| Table Stakes | Differentiators |
+|-------------|-----------------|
+| Button hover/press states | Spring-physics animations |
+| Loading spinners on async | Exit animations (AnimatePresence) |
+| Smooth page transitions | Layout animations |
+
+#### Channel Management
+
+| Table Stakes | Differentiators |
+|-------------|-----------------|
+| List of available channels | WhatsApp QR pairing flow |
+| Connection status indicators | Guided bot token setup |
+| Connect/disconnect actions | Connection health monitoring |
+
+### Critical Pitfalls to Watch
+
+| ID | Pitfall | Severity | Prevention |
+|----|---------|----------|------------|
+| **LS-01** | Event listener memory leaks | Critical | Always return `unlisten()` from useEffect cleanup |
+| **CH-01** | OAuth token storage insecurity | Critical | Use OS keychain, NOT tauri-plugin-store |
+| **LS-02** | Unbounded log buffer growth | High | Cap buffer to 500 lines, use virtualization |
+| **UI-01** | GPU compositing layer explosion | High | Limit to 3-5 concurrent animations |
+| **CH-02** | WhatsApp QR pairing race | High | Show countdown timer, auto-regenerate |
+| **INT-01** | Breaking existing progress flow | High | Design new model before coding, feature flag |
+
+### Build Order (4 Weeks)
+
+| Week | Focus | Key Deliverables |
+|------|-------|------------------|
+| 1 | Docker Log Streaming | DockerLogLine types, emit helper, log viewer |
+| 2 | Animation System | CSS keyframes, component transitions |
+| 3-4 | Channel Management | Backend commands, store/hooks, UI, pairing flows |
+
+### Files Summary
+
+- **10 new files** to create (channels module, hooks, pages, components)
+- **12 files** to modify (existing commands, hooks, router, CSS)
+
+### Anti-Features (Avoid)
+
+| Avoid | Use Instead |
+|-------|-------------|
+| Full xterm.js terminal (200KB) | Simple log viewer with ANSI regex |
+| In-app message viewing | Link to native apps |
+| Animations everywhere | Animate key moments only |
+| Long animation durations (>300ms) | Keep under 300ms for micro-interactions |
+
+---
+
+## v1.0 Research Summary (Reference)
+
+### Executive Summary
 
 OpenClaw Desktop Installer is a Tauri v2 desktop application that provides a zero-terminal experience for installing, configuring, and managing the OpenClaw AI agent platform. The closest analog is Docker Desktop — managing containers, config, updates, and logs through a polished GUI — but specialized for an AI agent with complex sandboxing requirements. Expert implementations (ClawPier, Orca Desktop, Dockerman) all converge on the same stack: Tauri v2 + React + bollard (Rust Docker client) with a layered architecture where the frontend is a "control surface" and all business logic lives in the Rust core process.
 
