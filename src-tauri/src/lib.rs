@@ -29,6 +29,9 @@ pub fn run() {
             commands::config::read_config,
             commands::config::write_config,
             commands::config::validate_config,
+            commands::monitoring::get_openclaw_status,
+            commands::monitoring::get_agent_sessions,
+            commands::monitoring::get_sandbox_containers,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
