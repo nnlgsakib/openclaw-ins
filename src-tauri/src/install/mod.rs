@@ -1,3 +1,5 @@
+pub mod docker_install;
+pub mod native_install;
 pub mod progress;
 pub mod verify;
 

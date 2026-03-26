@@ -31,4 +31,7 @@ anyhow = "1.0.102"
 tokio = { version = "1.50.0", features = ["full"] }
 sysinfo = "0.33"
 reqwest = { version = "0.12", features = ["json"] }
+futures-util = "0.3"
+dirs = "6"
+getrandom = "0.3"
 
