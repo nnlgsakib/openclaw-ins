@@ -6,11 +6,11 @@
 ## Milestones
 
 - ✅ **v1.0 MVP** — Phases 1-6 (shipped 2026-03-26)
-- 🚧 **v1.1 UX Polish & Channels** — Phases 7-10 (in progress)
+- ✅ **v1.1 UX Polish & Channels** — Phases 7-10 (complete 2026-03-26)
 
 ## Phases
 
-### 🚧 v1.1 UX Polish & Channels (Phases 7-10)
+### ✅ v1.1 UX Polish & Channels (Phases 7-10) — COMPLETE 2026-03-26
 
 #### Phase 7: Installation UX & Animation Foundation
 
@@ -97,34 +97,34 @@ Plans:
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 7. Installation UX & Animation | v1.1 | 7/7 | Planned | — |
-| 8. Channel Management Core | v1.1 | 0/? | Pending | — |
-| 9. Channel Pairing Flows | v1.1 | 0/? | Pending | — |
-| 10. Access Control & Activity | v1.1 | 0/? | Pending | — |
+| 7. Installation UX & Animation | v1.1 | 9/9 | ✅ | 2026-03-26 |
+| 8. Channel Management Core | v1.1 | 1/1 | ✅ | 2026-03-26 |
+| 9. Channel Pairing Flows | v1.1 | 1/1 | ✅ | 2026-03-26 |
+| 10. Access Control & Activity | v1.1 | 1/1 | ✅ | 2026-03-26 |
 
 ## v1.1 Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INST-10 | Phase 7 | Pending |
-| INST-11 | Phase 7 | Pending |
-| INST-12 | Phase 7 | Pending |
-| UI-01 | Phase 7 | Pending |
-| UI-02 | Phase 7 | Pending |
-| UI-03 | Phase 7 | Pending |
-| UI-04 | Phase 7 | Pending |
-| CHAN-01 | Phase 8 | Pending |
-| CHAN-02 | Phase 8 | Pending |
-| CMON-01 | Phase 8 | Pending |
-| CHAN-03 | Phase 9 | Pending |
-| CHAN-04 | Phase 9 | Pending |
-| CHAN-05 | Phase 9 | Pending |
-| ACC-01 | Phase 10 | Pending |
-| ACC-02 | Phase 10 | Pending |
-| ACC-03 | Phase 10 | Pending |
-| CMON-02 | Phase 10 | Pending |
+| INST-10 | Phase 7 | ✅ |
+| INST-11 | Phase 7 | ✅ |
+| INST-12 | Phase 7 | ✅ |
+| UI-01 | Phase 7 | ✅ |
+| UI-02 | Phase 7 | ✅ |
+| UI-03 | Phase 7 | ✅ |
+| UI-04 | Phase 7 | ✅ |
+| CHAN-01 | Phase 8 | ✅ |
+| CHAN-02 | Phase 8 | ✅ |
+| CMON-01 | Phase 8 | ✅ |
+| CHAN-03 | Phase 9 | ✅ |
+| CHAN-04 | Phase 9 | ✅ |
+| CHAN-05 | Phase 9 | ✅ |
+| ACC-01 | Phase 10 | ✅ |
+| ACC-02 | Phase 10 | ✅ |
+| ACC-03 | Phase 10 | ✅ |
+| CMON-02 | Phase 10 | ✅ |
 
-**Coverage:** 16/16 v1.1 requirements mapped ✓
+**Coverage:** 17/17 v1.1 requirements complete ✓
 
 ---
 
