@@ -36,6 +36,8 @@ pub fn run() {
             commands::monitoring::get_sandbox_containers,
             commands::monitoring::get_container_logs,
             commands::uninstall::uninstall_openclaw,
+            commands::update::check_openclaw_update,
+            commands::update::update_openclaw,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

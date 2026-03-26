@@ -5,4 +5,5 @@ pub mod monitoring;
 pub mod platform;
 pub mod system_check;
 pub mod uninstall;
+pub mod update;
 pub mod verify_installation;
