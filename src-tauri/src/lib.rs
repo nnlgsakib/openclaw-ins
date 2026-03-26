@@ -17,6 +17,8 @@ pub fn run() {
         .plugin(tauri_plugin_store::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .manage(Mutex::new(AppState::default()))
         .invoke_handler(tauri::generate_handler![
             commands::platform::get_platform_info,
@@ -33,6 +35,7 @@ pub fn run() {
             commands::monitoring::get_agent_sessions,
             commands::monitoring::get_sandbox_containers,
             commands::monitoring::get_container_logs,
+            commands::uninstall::uninstall_openclaw,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

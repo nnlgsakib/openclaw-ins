@@ -17,6 +17,10 @@
     "notification:default",
     "dialog:default",
     "dialog:allow-open",
+    "dialog:allow-ask",
+    "updater:default",
+    "process:default",
+    "process:allow-restart",
     {
       "identifier": "shell:allow-execute",
       "allow": [
