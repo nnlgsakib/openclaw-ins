@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: UX Polish & Channels
 status: executing
-last_updated: "2026-03-26T14:19:16.319Z"
+last_updated: "2026-03-26T14:41:05.175Z"
 last_activity: 2026-03-26
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 8
-  completed_plans: 5
+  completed_plans: 7
 ---
 
 # STATE: OpenClaw Desktop
@@ -23,7 +23,7 @@ progress:
 ## Current Position
 
 Phase: 07 (installation-ux-animation-foundation) — EXECUTING
-Plan: 3 of 8
+Plan: 5 of 8
 Status: Ready to execute
 Last activity: 2026-03-26
 
@@ -34,7 +34,7 @@ Last activity: 2026-03-26
 | Phases planned | 6 |
 | Requirements mapped | 31/31 |
 | Coverage | 100% |
-| Plans completed | 3/3 |
+| Plans completed | 7/8 |
 | Phases completed | 0/6 |
 | Phase 01-foundation P01 | 33min | 3 tasks | 40 files |
 | Phase 01-foundation P03 | 23min | 3 tasks | 15 files |
@@ -58,6 +58,9 @@ Last activity: 2026-03-26
 | Phase 07-installation-ux-animation-foundation P03 | 5min | 1 tasks | 1 files |
 | Phase 07-installation-ux-animation-foundation P01 | 5min | 2 tasks | 3 files |
 | Phase 07-installation-ux-animation-foundation P06 | 0min | 3 tasks | 4 files |
+| Phase 07-installation-ux-animation-foundation P02 | 8min | 3 tasks | 4 files |
+| Phase 07-installation-ux-animation-foundation P07 | 1min | 1 tasks | 1 files |
+| Phase 07-installation-ux-animation-foundation P07 | 1min | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -111,6 +114,8 @@ Last activity: 2026-03-26
 - motion v12.38.0 as Framer Motion package (modern import path: motion/react) — gesture props (whileHover/whileTap/whileFocus) for Button micro-interactions
 - Docker log streaming via Tauri events (docker-log-output channel) — real-time terminal display replacing fake progress
 - Auto-scroll pause threshold: 200px from bottom — standard terminal UX for reading historical output
+- AnimatePresence at router level (mode='wait') wrapping Routes with motion.div keyed by location.pathname — single point of control for all page transitions
+- Docker layer progress events via dedicated Tauri channel (docker-layer-progress) — per-layer ID tracking with update-or-add semantics
 
 ### Critical Pitfalls (from research)
 
@@ -128,6 +133,6 @@ Last activity: 2026-03-26
 
 ## Session Continuity
 
-**Last action:** Completed 07-01-PLAN.md (5min, 2 tasks, 3 files) — Docker log viewer with real-time streaming
-**Next action:** Execute remaining Phase 07 plans (02, 06-08 of 8)
-**Files to review:** `.planning/phases/07-installation-ux-animation-foundation/07-01-SUMMARY.md`
+**Last action:** Completed 07-07-PLAN.md (1min, 1 task, 1 file) — AnimatePresence page transitions
+**Next action:** Execute remaining Phase 07 plans (08 of 8)
+**Files to review:** `.planning/phases/07-installation-ux-animation-foundation/07-07-SUMMARY.md`
