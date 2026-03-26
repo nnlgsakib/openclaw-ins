@@ -1,9 +1,46 @@
 # Requirements: OpenClaw Desktop
 
 **Defined:** 2026-03-25
+**Updated:** 2026-03-26 (v1.1 milestone)
 **Core Value:** Make OpenClaw installable and manageable by anyone — from download to daily use — without touching a terminal.
 
-## v1 Requirements
+## v1.1 Requirements
+
+Requirements for v1.1 UX Polish & Channels milestone.
+
+### Installation UX (Enhanced)
+
+- [ ] **INST-10**: User sees real-time Docker logs during installation (not fake percentage)
+- [ ] **INST-11**: User sees per-layer progress bars showing individual download status
+- [ ] **INST-12**: Log viewer auto-scrolls to latest but pauses when user scrolls up
+
+### UI/UX Polish
+
+- [ ] **UI-01**: All buttons have hover/press micro-interactions with visual feedback
+- [ ] **UI-02**: Loading states show skeleton placeholders instead of blank space
+- [ ] **UI-03**: Page transitions use smooth fade/slide animations
+- [ ] **UI-04**: Spring physics animations for progress bars and status changes
+
+### Channel Management
+
+- [ ] **CHAN-01**: User can view list of all available channels with connection status
+- [ ] **CHAN-02**: User can connect/disconnect channels from the UI
+- [ ] **CHAN-03**: User can pair WhatsApp via in-app QR code display
+- [ ] **CHAN-04**: User can set up Telegram bot with guided token entry
+- [ ] **CHAN-05**: User can set up Discord bot with guided token entry
+
+### Access Control
+
+- [ ] **ACC-01**: User can whitelist specific contacts allowed to message agent
+- [ ] **ACC-02**: User can approve/deny new contacts before they can chat
+- [ ] **ACC-03**: User can block/ban specific users from reaching agent
+
+### Channel Monitoring
+
+- [ ] **CMON-01**: User can see connection health with auto-detect of expired sessions
+- [ ] **CMON-02**: User can view recent message activity feed across all channels
+
+## v1 Requirements (Complete)
 
 Requirements for initial release. Each maps to roadmap phases.
 
@@ -137,11 +174,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | LIFE-04 | Phase 6 | Complete |
 
 **Coverage:**
-- v1 requirements: 31 total
-- Mapped to phases: 31
-- Unmapped: 0 ✓
+- v1 requirements: 31 total (all complete)
+- v1.1 requirements: 16 total
+- Mapped to phases: 31 (v1) + pending (v1.1)
+- Unmapped: 16 (v1.1 — roadmap pending)
 
-**Phase distribution:**
+**Phase distribution (v1):**
 - Phase 1: 3 requirements (PLAT-01, PLAT-02, ERR-01)
 - Phase 2: 2 requirements (INST-03, ERR-03)
 - Phase 3: 6 requirements (INST-01, INST-02, INST-04, INST-05, PLAT-03, ERR-02)
@@ -151,4 +189,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-03-25*
-*Last updated: 2026-03-25 after initial definition*
+*Last updated: 2026-03-26 after v1.1 milestone definition*
