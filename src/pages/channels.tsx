@@ -2,7 +2,6 @@ import { useState } from "react"
 import {
   useChannels,
   useDisconnectChannel,
-  useConnectChannel,
   type ChannelInfo,
   type ChannelStatus,
   type ChannelType,
@@ -19,6 +18,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Skeleton } from "@/components/ui/skeleton"
+import { PairingModal } from "@/components/channels/pairing-modal"
 import {
   RefreshCw,
   MessageSquare,
@@ -43,6 +43,7 @@ export function Channels() {
   const { data: channels, isLoading: channelsLoading } = useChannels()
   const { data: status, isLoading: statusLoading } = useOpenClawStatus()
   const queryClient = useQueryClient()
+  const [pairingChannel, setPairingChannel] = useState<ChannelInfo | null>(null)
 
   const isRunning = status?.state === "running"
   const isLoading = channelsLoading || statusLoading
@@ -114,7 +115,11 @@ export function Channels() {
 
         {!isLoading &&
           channels?.map((channel) => (
-            <ChannelCard key={channel.id} channel={channel} />
+            <ChannelCard
+              key={channel.id}
+              channel={channel}
+              onConnect={() => setPairingChannel(channel)}
+            />
           ))}
       </div>
 
@@ -129,16 +134,31 @@ export function Channels() {
           </CardContent>
         </Card>
       )}
+
+      {/* Pairing Modal */}
+      <PairingModal
+        open={!!pairingChannel}
+        onOpenChange={(open) => !open && setPairingChannel(null)}
+        channel={pairingChannel}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ["channels"] })
+        }}
+      />
     </div>
   )
 }
 
 // ─── Internal Components ───────────────────────────────────────────
 
-function ChannelCard({ channel }: { channel: ChannelInfo }) {
+function ChannelCard({
+  channel,
+  onConnect,
+}: {
+  channel: ChannelInfo
+  onConnect: () => void
+}) {
   const [confirmDisconnect, setConfirmDisconnect] = useState(false)
   const disconnectMutation = useDisconnectChannel()
-  const connectMutation = useConnectChannel()
 
   const handleDisconnect = () => {
     disconnectMutation.mutate(channel.id, {
@@ -149,17 +169,6 @@ function ChannelCard({ channel }: { channel: ChannelInfo }) {
       onError: () => {
         toast.error(`Failed to disconnect ${channel.name}`)
         setConfirmDisconnect(false)
-      },
-    })
-  }
-
-  const handleConnect = () => {
-    connectMutation.mutate(channel.id, {
-      onSuccess: () => {
-        toast.success(`Connecting to ${channel.name}...`)
-      },
-      onError: () => {
-        toast.error(`Failed to connect ${channel.name}`)
       },
     })
   }
@@ -221,7 +230,7 @@ function ChannelCard({ channel }: { channel: ChannelInfo }) {
                 Session expired — reconnect to continue
               </AlertDescription>
             </Alert>
-            <Button size="sm" onClick={handleConnect}>
+            <Button size="sm" onClick={onConnect}>
               Reconnect
             </Button>
           </div>
@@ -231,7 +240,7 @@ function ChannelCard({ channel }: { channel: ChannelInfo }) {
             Connecting...
           </Button>
         ) : (
-          <Button size="sm" onClick={handleConnect}>
+          <Button size="sm" onClick={onConnect}>
             Connect
           </Button>
         )}

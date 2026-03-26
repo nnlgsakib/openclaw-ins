@@ -38,6 +38,22 @@ pub struct ChannelInfo {
     pub last_active_at: Option<String>,
 }
 
+/// Result of a token validation attempt.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TokenValidationResult {
+    pub valid: bool,
+    pub message: String,
+}
+
+/// WhatsApp QR code data.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WhatsAppQrData {
+    pub qr_code: String,
+    pub expires_at: Option<String>,
+}
+
 // ─── Commands ─────────────────────────────────────────────────────
 
 /// Fetch all available channels from OpenClaw.
@@ -156,6 +172,173 @@ pub async fn connect_channel(channel_id: String) -> Result<ChannelInfo, AppError
         Err(e) => Err(AppError::Internal {
             message: format!("Failed to connect channel: {}", e),
             suggestion: "Check that OpenClaw is running and try again.".into(),
+        }),
+    }
+}
+
+/// Fetch WhatsApp QR code for pairing.
+///
+/// Returns a base64-encoded QR code image data URL.
+/// Returns an error if OpenClaw is not running.
+#[tauri::command]
+pub async fn get_whatsapp_qr() -> Result<WhatsAppQrData, AppError> {
+    let status = get_openclaw_status().await?;
+
+    let port = match status {
+        OpenClawStatus::Running { port, .. } => port,
+        _ => return Err(AppError::Internal {
+            message: "OpenClaw is not running".into(),
+            suggestion: "Start OpenClaw before pairing WhatsApp.".into(),
+        }),
+    };
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| AppError::Internal {
+            message: format!("Failed to build HTTP client: {}", e),
+            suggestion: "This is an internal error. Please report it.".into(),
+        })?;
+
+    let url = format!("http://localhost:{}/api/channels/whatsapp/qr", port);
+
+    match client.get(&url).send().await {
+        Ok(resp) => match resp.json::<WhatsAppQrData>().await {
+            Ok(data) => Ok(data),
+            Err(_) => Ok(WhatsAppQrData {
+                qr_code: String::new(),
+                expires_at: None,
+            }),
+        },
+        Err(e) => Err(AppError::Internal {
+            message: format!("Failed to fetch WhatsApp QR code: {}", e),
+            suggestion: "Check that OpenClaw is running and try again.".into(),
+        }),
+    }
+}
+
+/// Validate a Telegram bot token.
+///
+/// Checks token format before sending to OpenClaw for verification.
+#[tauri::command]
+pub async fn validate_telegram_token(token: String) -> Result<TokenValidationResult, AppError> {
+    if token.trim().is_empty() {
+        return Ok(TokenValidationResult {
+            valid: false,
+            message: "Token cannot be empty.".into(),
+        });
+    }
+
+    let parts: Vec<&str> = token.split(':').collect();
+    if parts.len() != 2 || parts[0].is_empty() || parts[1].is_empty() {
+        return Ok(TokenValidationResult {
+            valid: false,
+            message: "Invalid token format. Expected: numeric_id:alphanumeric_token".into(),
+        });
+    }
+
+    if !parts[0].chars().all(|c| c.is_ascii_digit()) {
+        return Ok(TokenValidationResult {
+            valid: false,
+            message: "Bot ID must be numeric.".into(),
+        });
+    }
+
+    let status = get_openclaw_status().await?;
+    let port = match status {
+        OpenClawStatus::Running { port, .. } => port,
+        _ => return Ok(TokenValidationResult {
+            valid: false,
+            message: "OpenClaw is not running. Start it first.".into(),
+        }),
+    };
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| AppError::Internal {
+            message: format!("Failed to build HTTP client: {}", e),
+            suggestion: "This is an internal error. Please report it.".into(),
+        })?;
+
+    let url = format!("http://localhost:{}/api/channels/telegram/validate", port);
+
+    match client.post(&url).json(&serde_json::json!({ "token": token })).send().await {
+        Ok(resp) => {
+            if resp.status().is_success() {
+                Ok(TokenValidationResult {
+                    valid: true,
+                    message: "Token validated successfully.".into(),
+                })
+            } else {
+                Ok(TokenValidationResult {
+                    valid: false,
+                    message: "Token rejected by Telegram API. Check that the token is correct.".into(),
+                })
+            }
+        }
+        Err(_) => Ok(TokenValidationResult {
+            valid: false,
+            message: "Could not reach OpenClaw API. Ensure OpenClaw is running.".into(),
+        }),
+    }
+}
+
+/// Validate a Discord bot token.
+///
+/// Checks token format before sending to OpenClaw for verification.
+#[tauri::command]
+pub async fn validate_discord_token(token: String) -> Result<TokenValidationResult, AppError> {
+    if token.trim().is_empty() {
+        return Ok(TokenValidationResult {
+            valid: false,
+            message: "Token cannot be empty.".into(),
+        });
+    }
+
+    if token.len() < 50 {
+        return Ok(TokenValidationResult {
+            valid: false,
+            message: "Discord tokens are typically 70+ characters. Double-check your token.".into(),
+        });
+    }
+
+    let status = get_openclaw_status().await?;
+    let port = match status {
+        OpenClawStatus::Running { port, .. } => port,
+        _ => return Ok(TokenValidationResult {
+            valid: false,
+            message: "OpenClaw is not running. Start it first.".into(),
+        }),
+    };
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| AppError::Internal {
+            message: format!("Failed to build HTTP client: {}", e),
+            suggestion: "This is an internal error. Please report it.".into(),
+        })?;
+
+    let url = format!("http://localhost:{}/api/channels/discord/validate", port);
+
+    match client.post(&url).json(&serde_json::json!({ "token": token })).send().await {
+        Ok(resp) => {
+            if resp.status().is_success() {
+                Ok(TokenValidationResult {
+                    valid: true,
+                    message: "Token validated successfully.".into(),
+                })
+            } else {
+                Ok(TokenValidationResult {
+                    valid: false,
+                    message: "Token rejected by Discord API. Check that the token is correct.".into(),
+                })
+            }
+        }
+        Err(_) => Ok(TokenValidationResult {
+            valid: false,
+            message: "Could not reach OpenClaw API. Ensure OpenClaw is running.".into(),
         }),
     }
 }

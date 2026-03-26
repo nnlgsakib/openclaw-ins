@@ -15,6 +15,16 @@ export interface ChannelInfo {
   lastActiveAt: string | null
 }
 
+export interface WhatsAppQrData {
+  qrCode: string
+  expiresAt: string | null
+}
+
+export interface TokenValidationResult {
+  valid: boolean
+  message: string
+}
+
 // ─── Hooks ────────────────────────────────────────────────────────
 
 /**
@@ -69,6 +79,46 @@ export function useConnectChannel() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["channels"] })
+    },
+  })
+}
+
+/**
+ * Fetch WhatsApp QR code for pairing.
+ * Polls every 5s while enabled to detect QR refresh.
+ */
+export function useWhatsAppQr(enabled: boolean) {
+  return useQuery<WhatsAppQrData>({
+    queryKey: ["channels", "whatsapp-qr"],
+    queryFn: async () => {
+      return await invoke<WhatsAppQrData>("get_whatsapp_qr")
+    },
+    enabled,
+    refetchInterval: 5_000,
+    retry: 1,
+  })
+}
+
+/**
+ * Validate a Telegram bot token.
+ * Returns validation result with success/error message.
+ */
+export function useValidateTelegramToken() {
+  return useMutation({
+    mutationFn: async (token: string) => {
+      return await invoke<TokenValidationResult>("validate_telegram_token", { token })
+    },
+  })
+}
+
+/**
+ * Validate a Discord bot token.
+ * Returns validation result with success/error message.
+ */
+export function useValidateDiscordToken() {
+  return useMutation({
+    mutationFn: async (token: string) => {
+      return await invoke<TokenValidationResult>("validate_discord_token", { token })
     },
   })
 }
