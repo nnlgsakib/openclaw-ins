@@ -22,11 +22,12 @@ Make OpenClaw installable and manageable by anyone — from download to daily us
 - ✓ User can configure sandboxing (Docker isolation, workspace access, bind mounts) — Phase 4
 - ✓ User can manage all OpenClaw config visually (models, skills, permissions, integrations) — Phase 4
 - ✓ User can monitor OpenClaw agent status and activity — Phase 5
+- ✓ User can update OpenClaw to newer versions — Phase 6
+- ✓ User can uninstall OpenClaw cleanly — Phase 6
 
 ### Active
 
-- [ ] User can update OpenClaw to newer versions
-- [ ] User can uninstall OpenClaw cleanly
+*(All v1 requirements validated)*
 
 ### Out of Scope
 
@@ -79,4 +80,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-26 after Phase 5: Monitoring (4/4 verified, gap closed)*
+*Last updated: 2026-03-26 after Phase 6: Lifecycle — **v1.0 milestone complete**
