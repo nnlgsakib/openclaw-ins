@@ -25,6 +25,17 @@
 4. Loading states show skeleton placeholders instead of blank space
 5. Page transitions are smooth with fade/slide animations
 
+**Plans:** 7 plans
+
+Plans:
+- [ ] 07-installation-ux-animation-foundation-01-PLAN.md — Create Docker log viewer and integrate into installation flow
+- [ ] 07-installation-ux-animation-foundation-02-PLAN.md — Implement per-layer progress tracking for Docker layers
+- [ ] 07-installation-ux-animation-foundation-03-PLAN.md — Enhance progress bar with spring physics animations
+- [ ] 07-installation-ux-animation-foundation-04-PLAN.md — Create animation utilities for consistent timing and spring presets
+- [ ] 07-installation-ux-animation-foundation-05-PLAN.md — Enhance button micro-interactions with Framer Motion
+- [ ] 07-installation-ux-animation-foundation-06-PLAN.md — Implement skeleton loading states for data-fetching pages
+- [ ] 07-installation-ux-animation-foundation-07-PLAN.md — Implement smooth page transitions throughout the application
+
 ---
 
 #### Phase 8: Channel Management Core
@@ -85,13 +96,7 @@
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 1. Foundation | v1.0 | 3/3 | Complete | 2026-03-25 |
-| 2. Docker Integration | v1.0 | 2/2 | Complete | 2026-03-25 |
-| 3. Installation Engine | v1.0 | 3/3 | Complete | 2026-03-26 |
-| 4. Configuration & Sandboxing | v1.0 | 3/3 | Complete | 2026-03-26 |
-| 5. Monitoring | v1.0 | 3/3 | Complete | 2026-03-26 |
-| 6. Lifecycle | v1.0 | 3/3 | Complete | 2026-03-26 |
-| 7. Installation UX & Animation | v1.1 | 0/? | Pending | — |
+| 7. Installation UX & Animation | v1.1 | 7/7 | Planned | — |
 | 8. Channel Management Core | v1.1 | 0/? | Pending | — |
 | 9. Channel Pairing Flows | v1.1 | 0/? | Pending | — |
 | 10. Access Control & Activity | v1.1 | 0/? | Pending | — |
