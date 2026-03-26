@@ -11,7 +11,7 @@ Requirements for v1.1 UX Polish & Channels milestone.
 ### Installation UX (Enhanced)
 
 - [x] **INST-10**: User sees real-time Docker logs during installation (not fake percentage)
-- [ ] **INST-11**: User sees per-layer progress bars showing individual download status
+- [x] **INST-11**: User sees per-layer progress bars showing individual download status
 - [x] **INST-12**: Log viewer auto-scrolls to latest but pauses when user scrolls up
 
 ### UI/UX Polish
@@ -173,7 +173,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | LIFE-03 | Phase 6 | Complete |
 | LIFE-04 | Phase 6 | Complete |
 | INST-10 | Phase 7 | Complete |
-| INST-11 | Phase 7 | Pending |
+| INST-11 | Phase 7 | Complete |
 | INST-12 | Phase 7 | Complete |
 | UI-01 | Phase 7 | Complete |
 | UI-02 | Phase 7 | Complete |
