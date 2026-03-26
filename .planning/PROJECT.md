@@ -24,21 +24,19 @@ Make OpenClaw installable and manageable by anyone — from download to daily us
 - ✓ User can monitor OpenClaw agent status and activity — Phase 5
 - ✓ User can update OpenClaw to newer versions — Phase 6
 - ✓ User can uninstall OpenClaw cleanly — Phase 6
+- ✓ Real-time Docker log streaming during installation (replace fake percentage) — Phase 7
+- ✓ Show actual pull progress, layer downloads, container startup — Phase 7
+- ✓ Make installation feel alive and trustworthy — Phase 7
+- ✓ Micro-interactions and animations throughout — Phase 7
+- ✓ Loading states, transitions, hover effects — Phase 7
 
 ### Active
 
 #### v1.1: UX Polish & Channels
 
-**Installation UX**
-- [ ] Real-time Docker log streaming during installation (replace fake percentage)
-- [ ] Show actual pull progress, layer downloads, container startup
-- [ ] Make installation feel alive and trustworthy
-
 **UI/UX Overhaul**
 - [ ] Modern, interactive design (not flat)
-- [ ] Micro-interactions and animations throughout
 - [ ] Better visual hierarchy and feedback
-- [ ] Loading states, transitions, hover effects
 - [ ] Consistent design language across all pages
 
 **Channel Management (NEW)**
@@ -95,17 +93,18 @@ Make OpenClaw installable and manageable by anyone — from download to daily us
 ## Current State
 
 **Shipped:** v1.0 MVP (2026-03-26)
-**Scope:** 6 phases, 17 plans, 31/31 requirements validated
-**Codebase:** 27,962 LOC across 161 files (Rust + TypeScript)
-**Tech stack:** Tauri v2 + React 19 + TypeScript + Tailwind v4 + shadcn/ui + bollard + Zustand + TanStack Query
+**Scope:** 7 phases, 18 plans, 37/31 requirements validated
+**Codebase:** ~28k LOC across ~170 files (Rust + TypeScript)
+**Tech stack:** Tauri v2 + React 19 + TypeScript + Tailwind v4 + shadcn/ui + bollard + Zustand + TanStack Query + motion (Framer Motion)
 
 ### What's Working
 - Full onboarding wizard: system check → method selection → install → verification → ready
-- Docker and native installation paths with progress tracking
+- Docker and native installation paths with real-time log streaming and per-layer progress bars
 - Visual config editor: provider, sandbox, tools, agents settings
 - Real-time monitoring dashboard: status, sessions, containers, log streaming
 - One-click updates (OpenClaw + desktop app) with progress
 - Clean uninstall with config preservation option
+- Polished UI: skeleton loading states, button micro-interactions, page transition animations
 
 ### Known Technical Debt
 - `setup_sandbox` backend command stubbed (frontend handles gracefully)
@@ -130,4 +129,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-26 after starting v1.1 milestone*
+*Last updated: 2026-03-26 after Phase 07 (installation-ux-animation-foundation) completion*
