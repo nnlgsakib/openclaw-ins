@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Ready to execute
-last_updated: "2026-03-25T18:45:32.947Z"
+last_updated: "2026-03-26T00:13:22.327Z"
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 8
-  completed_plans: 6
+  completed_plans: 7
 ---
 
 # STATE: OpenClaw Desktop
@@ -22,7 +22,7 @@ progress:
 ## Current Position
 
 Phase: 03 (installation-engine) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 
 ## Performance Metrics
 
@@ -39,6 +39,7 @@ Plan: 2 of 3
 | Phase 02-docker-integration P01 | 8min | 2 tasks | 5 files |
 | Phase 02-docker-integration P02 | 4min | 2 tasks | 4 files |
 | Phase 03-installation-engine P01 | 8min | 2 tasks | 7 files |
+| Phase 03-installation-engine P02 | 11min | 4 tasks | 15 files |
 
 ## Accumulated Context
 
@@ -71,6 +72,11 @@ Plan: 2 of 3
 - sysinfo 0.33 crate for disk/RAM checks in system check command
 - Onboarding state machine via Zustand: system_check → install → verify → ready → error
 - Predefined system check thresholds: 2GB disk, 2GB RAM minimum
+- Embedded docker-compose.yml template (env var substitution, no runtime generation)
+- getrandom crate for gateway token generation (64 hex chars, auditable entropy)
+- Simple semver comparison (major.minor.patch) without external crate
+- Install method selector as dedicated step before install starts
+- Non-fatal onboarding wizard errors in native install (interactive input may be required)
 
 ### Critical Pitfalls (from research)
 
@@ -88,6 +94,6 @@ Plan: 2 of 3
 
 ## Session Continuity
 
-**Last action:** Completed 03-installation-engine-01-PLAN.md (8min, 2 tasks, 7 files)
-**Next action:** Execute 03-installation-engine-02 (installation orchestration: Docker and native install flows with progress tracking)
-**Files to review:** `.planning/phases/03-installation-engine/03-installation-engine-01-SUMMARY.md`
+**Last action:** Completed 03-installation-engine-02-PLAN.md (11min, 4 tasks, 15 files)
+**Next action:** Execute 03-installation-engine-03 (verification step UI and final integration)
+**Files to review:** `.planning/phases/03-installation-engine/03-installation-engine-02-SUMMARY.md`

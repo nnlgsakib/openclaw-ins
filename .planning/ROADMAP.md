@@ -57,7 +57,7 @@ Plans:
 **Plans**: 3 plans
 Plans:
 - [x] 03-installation-engine-01-PLAN.md — System check step (platform, Docker, Node.js, disk, RAM, port validation)
-- [ ] 03-installation-engine-02-PLAN.md — Installation orchestration (Docker and native install flows with progress tracking)
+- [x] 03-installation-engine-02-PLAN.md — Installation orchestration (Docker and native install flows with progress tracking)
 - [ ] 03-installation-engine-03-PLAN.md — Verification and completion steps (health check, success/error screens)
 
 ### Phase 4: Configuration & Sandboxing
