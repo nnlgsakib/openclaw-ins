@@ -106,7 +106,7 @@ Plans:
   5. User can choose to preserve their configuration during uninstall
   **Plans**: 3 plans
   Plans:
-  - [ ] 06-lifecycle-01-PLAN.md — OpenClaw one-click update (backend + frontend)
+  - [x] 06-lifecycle-01-PLAN.md — OpenClaw one-click update (backend + frontend)
   - [x] 06-lifecycle-02-PLAN.md — Desktop app auto-update (tauri-plugin-updater)
   - [x] 06-lifecycle-03-PLAN.md — Uninstall engine (clean removal + config preservation)
   **UI hint**: yes
