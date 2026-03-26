@@ -17,20 +17,20 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Configuration
 
-- [ ] **CONF-01**: User can configure OpenClaw provider/model selection visually
-- [ ] **CONF-02**: User can configure sandbox settings visually (mode, scope, workspace access)
+- [x] **CONF-01**: User can configure OpenClaw provider/model selection visually
+- [x] **CONF-02**: User can configure sandbox settings visually (mode, scope, workspace access)
 - [ ] **CONF-03**: User can configure tool policies visually (which tools are allowed/denied)
 - [ ] **CONF-04**: User can configure agent defaults visually (sandbox mode, autonomy)
-- [ ] **CONF-05**: Config editor validates changes before writing (schema validation)
-- [ ] **CONF-06**: User can configure bind mounts for sandbox (directory picker)
+- [x] **CONF-05**: Config editor validates changes before writing (schema validation)
+- [x] **CONF-06**: User can configure bind mounts for sandbox (directory picker)
 
 ### Sandboxing
 
-- [ ] **SAND-01**: User can enable/disable sandboxing with a toggle
-- [ ] **SAND-02**: User can choose sandbox backend (Docker, SSH, OpenShell)
-- [ ] **SAND-03**: User can set sandbox mode (off, non-main, all)
-- [ ] **SAND-04**: User can set workspace access level (none, read-only, read-write)
-- [ ] **SAND-05**: User can configure sandbox network policy (none, custom)
+- [x] **SAND-01**: User can enable/disable sandboxing with a toggle
+- [x] **SAND-02**: User can choose sandbox backend (Docker, SSH, OpenShell)
+- [x] **SAND-03**: User can set sandbox mode (off, non-main, all)
+- [x] **SAND-04**: User can set workspace access level (none, read-only, read-write)
+- [x] **SAND-05**: User can configure sandbox network policy (none, custom)
 - [ ] **SAND-06**: App runs sandbox setup scripts automatically when sandbox is enabled
 
 ### Monitoring
@@ -115,17 +115,17 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INST-05 | Phase 3 | Complete |
 | PLAT-03 | Phase 3 | Complete |
 | ERR-02 | Phase 3 | Complete |
-| CONF-01 | Phase 4 | Pending |
-| CONF-02 | Phase 4 | Pending |
+| CONF-01 | Phase 4 | Complete |
+| CONF-02 | Phase 4 | Complete |
 | CONF-03 | Phase 4 | Pending |
 | CONF-04 | Phase 4 | Pending |
-| CONF-05 | Phase 4 | Pending |
-| CONF-06 | Phase 4 | Pending |
-| SAND-01 | Phase 4 | Pending |
-| SAND-02 | Phase 4 | Pending |
-| SAND-03 | Phase 4 | Pending |
-| SAND-04 | Phase 4 | Pending |
-| SAND-05 | Phase 4 | Pending |
+| CONF-05 | Phase 4 | Complete |
+| CONF-06 | Phase 4 | Complete |
+| SAND-01 | Phase 4 | Complete |
+| SAND-02 | Phase 4 | Complete |
+| SAND-03 | Phase 4 | Complete |
+| SAND-04 | Phase 4 | Complete |
+| SAND-05 | Phase 4 | Complete |
 | SAND-06 | Phase 4 | Pending |
 | MON-01 | Phase 5 | Pending |
 | MON-02 | Phase 5 | Pending |

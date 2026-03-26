@@ -74,8 +74,8 @@ Plans:
   7. When sandbox is enabled, app automatically runs setup scripts without manual intervention
 **Plans**: 3 plans
 Plans:
-- [ ] 04-configuration-sandboxing-01-PLAN.md — Config backend (Rust types, read/write/validate commands)
-- [ ] 04-configuration-sandboxing-02-PLAN.md — Config frontend (Zustand store, provider + sandbox UI)
+- [x] 04-configuration-sandboxing-01-PLAN.md — Config backend (Rust types, read/write/validate commands)
+- [x] 04-configuration-sandboxing-02-PLAN.md — Config frontend (Zustand store, provider + sandbox UI)
 - [ ] 04-configuration-sandboxing-03-PLAN.md — Tool policies + agent defaults + sandbox setup trigger
 
 ### Phase 5: Monitoring
