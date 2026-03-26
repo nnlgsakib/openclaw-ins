@@ -50,25 +50,33 @@ interface StepInstallProps {
 export function StepInstall({ method }: StepInstallProps) {
   const { progress, mutate, isPending, isSuccess, isError, error, data } =
     useInstallOpenClaw();
-  const { transitionToVerify, transitionToError } = useOnboardingStore();
+  const {
+    transitionToVerify,
+    transitionToError,
+    isInstalling: storeIsInstalling,
+    setIsInstalling,
+  } = useOnboardingStore();
 
   const handleStartInstall = useCallback(() => {
+    setIsInstalling(true);
     mutate(
       { method },
       {
         onSuccess: () => {
+          setIsInstalling(false);
           // Auto-transition to verify step on success
           transitionToVerify(method);
         },
         onError: (err) => {
+          setIsInstalling(false);
           transitionToError(err.message || "Installation failed");
         },
       }
     );
-  }, [method, mutate, transitionToVerify, transitionToError]);
+  }, [method, mutate, transitionToVerify, transitionToError, setIsInstalling]);
 
-  // Determine UI state
-  const isInstalling = isPending;
+  // Determine UI state — use store flag so state persists across navigation
+  const isInstalling = isPending || storeIsInstalling;
   const isComplete = isSuccess;
   const hasFailed = isError;
 

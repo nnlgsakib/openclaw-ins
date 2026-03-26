@@ -39,6 +39,7 @@ interface OnboardingState {
   verificationResult: VerificationResult | null;
   isLoading: boolean;
   error: string | null;
+  isInstalling: boolean;
 
   setStep: (step: OnboardingStep) => void;
   setSystemCheckResult: (result: SystemCheckResult) => void;
@@ -48,6 +49,7 @@ interface OnboardingState {
   setVerificationResult: (result: VerificationResult | null) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
+  setIsInstalling: (isInstalling: boolean) => void;
   transitionToVerify: (method: InstallMethod) => void;
   transitionToReady: (result: VerificationResult) => void;
   transitionToError: (errorMessage: string) => void;
@@ -65,6 +67,7 @@ const initialState = {
   verificationResult: null,
   isLoading: false,
   error: null,
+  isInstalling: false,
 };
 
 export const useOnboardingStore = create<OnboardingState>((set) => ({
@@ -77,24 +80,29 @@ export const useOnboardingStore = create<OnboardingState>((set) => ({
   setVerificationResult: (result) => set({ verificationResult: result }),
   setLoading: (loading) => set({ isLoading: loading }),
   setError: (error) => set({ error }),
+  setIsInstalling: (isInstalling) => set({ isInstalling }),
   transitionToVerify: (method) =>
     set({
       step: "verify",
       installMethod: method,
+      installProgress: null,
       verificationProgress: null,
       verificationResult: null,
+      isInstalling: false,
       error: null,
     }),
   transitionToReady: (result) =>
     set({
       step: "ready",
       verificationResult: result,
+      isInstalling: false,
       error: null,
     }),
   transitionToError: (errorMessage) =>
     set({
       step: "error",
       error: errorMessage,
+      isInstalling: false,
     }),
   retryVerification: () =>
     set({
@@ -109,6 +117,7 @@ export const useOnboardingStore = create<OnboardingState>((set) => ({
       installProgress: null,
       verificationProgress: null,
       verificationResult: null,
+      isInstalling: false,
       error: null,
     }),
   reset: () => set(initialState),

@@ -141,9 +141,10 @@ Last activity: 2026-03-26
 |---|-------------|------|--------|-----------|
 | 260326-uaf | Fix framer-motion TypeScript type errors in button.tsx and layer-progress.tsx | 2026-03-26 | f321473 | [260326-uaf-fix-framer-motion-typescript-type-errors](./quick/260326-uaf-fix-framer-motion-typescript-type-errors/) |
 | 260326-ude | Fix Rust compiler warnings in error.rs and native_install.rs | 2026-03-26 | a334dc8 | [260326-ude-fix-rust-compiler-warnings-in-error-rs-a](./quick/260326-ude-fix-rust-compiler-warnings-in-error-rs-a/) |
+| 260326-ugw | Fix installation state not persisting across page navigation | 2026-03-26 | 554bb96 | [260326-ugw-fix-installation-state-not-persisting-ac](./quick/260326-ugw-fix-installation-state-not-persisting-ac/) |
 
 ## Session Continuity
 
-**Last action:** Completed quick task 260326-ude: Fix Rust compiler warnings in error.rs and native_install.rs
+**Last action:** Completed quick task 260326-ugw: Fix installation state not persisting across page navigation
 **Next action:** Plan Phase 08 (channel-management-core) — gather context or plan directly
 **Files to review:** `.planning/phases/07-installation-ux-animation-foundation/07-VERIFICATION.md`
