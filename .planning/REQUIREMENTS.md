@@ -35,10 +35,10 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Monitoring
 
-- [ ] **MON-01**: User can see OpenClaw running status (running/stopped/error)
-- [ ] **MON-02**: User can see active agent sessions
+- [x] **MON-01**: User can see OpenClaw running status (running/stopped/error)
+- [x] **MON-02**: User can see active agent sessions
 - [ ] **MON-03**: User can view agent activity logs (streamed)
-- [ ] **MON-04**: User can see sandbox container status
+- [x] **MON-04**: User can see sandbox container status
 
 ### Lifecycle
 
@@ -127,10 +127,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SAND-04 | Phase 4 | Complete |
 | SAND-05 | Phase 4 | Complete |
 | SAND-06 | Phase 4 | Complete |
-| MON-01 | Phase 5 | Pending |
-| MON-02 | Phase 5 | Pending |
+| MON-01 | Phase 5 | Complete |
+| MON-02 | Phase 5 | Complete |
 | MON-03 | Phase 5 | Pending |
-| MON-04 | Phase 5 | Pending |
+| MON-04 | Phase 5 | Complete |
 | LIFE-01 | Phase 6 | Pending |
 | LIFE-02 | Phase 6 | Pending |
 | LIFE-03 | Phase 6 | Pending |

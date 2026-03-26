@@ -89,7 +89,7 @@ Plans:
   4. User can see the status of sandbox containers (running, stopped, absent)
 **Plans**: 2 plans
 Plans:
-- [ ] 05-monitoring-01-PLAN.md — Monitoring backend (Rust types, Tauri commands for status/sessions/containers)
+- [x] 05-monitoring-01-PLAN.md — Monitoring backend (Rust types, Tauri commands for status/sessions/containers)
 - [ ] 05-monitoring-02-PLAN.md — Monitoring frontend (hooks, dashboard page replacing PageStub)
 **UI hint**: yes
 
