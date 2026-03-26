@@ -3,6 +3,9 @@ import { useConfig, useSaveConfig, useValidateConfig } from "@/hooks/use-config"
 import { useConfigStore } from "@/stores/use-config-store";
 import { ProviderSection } from "@/components/config/provider-section";
 import { SandboxSection } from "@/components/config/sandbox-section";
+import { ToolsSection } from "@/components/config/tools-section";
+import { AgentsSection } from "@/components/config/agents-section";
+import { invoke } from "@tauri-apps/api/core";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { showError } from "@/lib/toast-errors";
@@ -34,6 +37,10 @@ export function Configure() {
 
     setIsSaving(true);
     try {
+      // Track sandbox transition before save
+      const wasSandboxDisabled = !storeConfig?.sandbox?.enabled;
+      const isSandboxNowEnabled = storeConfig?.sandbox?.enabled;
+
       // First validate
       const validation = await validateConfig.mutateAsync(storeConfig);
 
@@ -50,6 +57,22 @@ export function Configure() {
       await saveConfig.mutateAsync(storeConfig);
       markClean();
       toast.success("Configuration saved successfully");
+
+      // Trigger sandbox setup if sandbox was just enabled
+      if (wasSandboxDisabled && isSandboxNowEnabled) {
+        toast.info("Setting up sandbox environment...");
+        try {
+          await invoke("setup_sandbox", { config: storeConfig });
+          toast.success("Sandbox setup complete");
+        } catch (err) {
+          const msg = String(err);
+          if (msg.includes("not found") || msg.includes("unknown")) {
+            toast.info("Sandbox setup pending — backend command not yet implemented");
+          } else {
+            toast.error(`Sandbox setup failed: ${err}`);
+          }
+        }
+      }
     } catch (err) {
       showError(err as Error);
     } finally {
@@ -103,6 +126,8 @@ export function Configure() {
         <div className="space-y-6">
           <ProviderSection />
           <SandboxSection />
+          <ToolsSection />
+          <AgentsSection />
         </div>
       )}
     </div>
