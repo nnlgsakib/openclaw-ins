@@ -24,6 +24,7 @@ pub fn run() {
             commands::docker::detect_docker,
             commands::system_check::run_system_check,
             commands::install::install_openclaw,
+            commands::verify_installation::verify_installation,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
