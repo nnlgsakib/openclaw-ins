@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Ready to execute
-last_updated: "2026-03-26T03:11:21.334Z"
+status: Phase 04 complete — ready for verification
+last_updated: "2026-03-26T03:22:34.105Z"
 progress:
   total_phases: 6
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 11
-  completed_plans: 10
+  completed_plans: 11
 ---
 
 # STATE: OpenClaw Desktop
@@ -21,7 +21,7 @@ progress:
 
 ## Current Position
 
-Phase: 04 (configuration-sandboxing) — EXECUTING
+Phase: 04 (configuration-sandboxing) — COMPLETE
 Plan: 3 of 3
 
 ## Performance Metrics
@@ -43,6 +43,7 @@ Plan: 3 of 3
 | Phase 03-installation-engine P03 | 8min | 2 tasks | 9 files |
 | Phase 04-configuration-sandboxing P01 | 2min | 2 tasks | 4 files |
 | Phase 04-configuration-sandboxing P02 | 8min | 2 tasks | 7 files |
+| Phase 04-configuration-sandboxing P03 | 14min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -83,6 +84,7 @@ Plan: 3 of 3
 - Verification method as string parameter (simpler than shared managed state for single-use)
 - Verification reuses install-progress event channel (no new event infrastructure)
 - Gateway token read from .env at verification time (no secrets in frontend state)
+- Sandbox setup gracefully degrades when backend command missing (informational toast, not error)
 
 ### Critical Pitfalls (from research)
 
@@ -100,6 +102,6 @@ Plan: 3 of 3
 
 ## Session Continuity
 
-**Last action:** Completed 03-installation-engine-03-PLAN.md (8min, 2 tasks, 9 files)
-**Next action:** Phase 03 complete — ready for verification, then Phase 04 (sandboxing)
-**Files to review:** `.planning/phases/03-installation-engine/03-installation-engine-03-SUMMARY.md`
+**Last action:** Completed 04-configuration-sandboxing-03-PLAN.md (14min, 2 tasks, 7 files)
+**Next action:** Phase 04 complete — ready for verification, then Phase 05
+**Files to review:** `.planning/phases/04-configuration-sandboxing/04-configuration-sandboxing-03-SUMMARY.md`

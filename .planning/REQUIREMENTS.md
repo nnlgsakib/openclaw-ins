@@ -19,8 +19,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [x] **CONF-01**: User can configure OpenClaw provider/model selection visually
 - [x] **CONF-02**: User can configure sandbox settings visually (mode, scope, workspace access)
-- [ ] **CONF-03**: User can configure tool policies visually (which tools are allowed/denied)
-- [ ] **CONF-04**: User can configure agent defaults visually (sandbox mode, autonomy)
+- [x] **CONF-03**: User can configure tool policies visually (which tools are allowed/denied)
+- [x] **CONF-04**: User can configure agent defaults visually (sandbox mode, autonomy)
 - [x] **CONF-05**: Config editor validates changes before writing (schema validation)
 - [x] **CONF-06**: User can configure bind mounts for sandbox (directory picker)
 
@@ -31,7 +31,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **SAND-03**: User can set sandbox mode (off, non-main, all)
 - [x] **SAND-04**: User can set workspace access level (none, read-only, read-write)
 - [x] **SAND-05**: User can configure sandbox network policy (none, custom)
-- [ ] **SAND-06**: App runs sandbox setup scripts automatically when sandbox is enabled
+- [x] **SAND-06**: App runs sandbox setup scripts automatically when sandbox is enabled
 
 ### Monitoring
 
@@ -117,8 +117,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ERR-02 | Phase 3 | Complete |
 | CONF-01 | Phase 4 | Complete |
 | CONF-02 | Phase 4 | Complete |
-| CONF-03 | Phase 4 | Pending |
-| CONF-04 | Phase 4 | Pending |
+| CONF-03 | Phase 4 | Complete |
+| CONF-04 | Phase 4 | Complete |
 | CONF-05 | Phase 4 | Complete |
 | CONF-06 | Phase 4 | Complete |
 | SAND-01 | Phase 4 | Complete |
@@ -126,7 +126,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SAND-03 | Phase 4 | Complete |
 | SAND-04 | Phase 4 | Complete |
 | SAND-05 | Phase 4 | Complete |
-| SAND-06 | Phase 4 | Pending |
+| SAND-06 | Phase 4 | Complete |
 | MON-01 | Phase 5 | Pending |
 | MON-02 | Phase 5 | Pending |
 | MON-03 | Phase 5 | Pending |
