@@ -14,7 +14,7 @@ import {
 import { useOnboardingStore } from "@/stores/use-onboarding-store";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
+import { DockerLogViewer } from "@/components/ui/log-viewer";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 function getStepIcon(step: string) {
@@ -106,7 +106,7 @@ export function StepInstall({ method }: StepInstallProps) {
         </Card>
       )}
 
-      {/* Installing state — progress bar + status */}
+      {/* Installing state — real-time Docker logs */}
       {isInstalling && (
         <Card>
           <CardHeader>
@@ -116,14 +116,11 @@ export function StepInstall({ method }: StepInstallProps) {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Progress value={progress?.percent ?? 0} />
-            <div className="text-center">
-              <p className="text-sm font-medium">
-                {progress?.message ?? "Preparing..."}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                {progress?.percent ?? 0}% complete
-              </p>
+            <p className="text-sm font-medium">
+              {progress?.message ?? "Preparing..."}
+            </p>
+            <div className="h-96">
+              <DockerLogViewer />
             </div>
           </CardContent>
         </Card>
