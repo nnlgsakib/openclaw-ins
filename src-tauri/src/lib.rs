@@ -25,6 +25,9 @@ pub fn run() {
             commands::system_check::run_system_check,
             commands::install::install_openclaw,
             commands::verify_installation::verify_installation,
+            commands::config::read_config,
+            commands::config::write_config,
+            commands::config::validate_config,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
