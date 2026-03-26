@@ -17,11 +17,11 @@ Make OpenClaw installable and manageable by anyone — from download to daily us
 - ✓ App translates technical errors into plain language with fix suggestions — Phase 1
 - ✓ App detects Docker availability and guides installation if missing — Phase 2
 - ✓ App handles Docker Desktop unavailability gracefully — Phase 2
+- ✓ User can install OpenClaw via one-click Docker setup — Phase 3
+- ✓ User can install OpenClaw natively on their machine — Phase 3
 
 ### Active
 
-- [ ] User can install OpenClaw via one-click Docker setup
-- [ ] User can install OpenClaw natively on their machine
 - [ ] User can configure sandboxing (Docker isolation, workspace access, bind mounts)
 - [ ] User can manage all OpenClaw config visually (models, skills, permissions, integrations)
 - [ ] User can monitor OpenClaw agent status and activity
@@ -79,4 +79,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-25 after Phase 2: Docker Integration*
+*Last updated: 2026-03-26 after Phase 3: Installation Engine*
