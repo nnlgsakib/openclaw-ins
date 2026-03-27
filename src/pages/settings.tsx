@@ -152,7 +152,7 @@ export function Settings() {
             {!isLoadingUpdate && updateCheck && (
               <div className="flex items-center gap-2">
                 {updateCheck.updateAvailable ? (
-                  <Badge className="bg-blue-500 text-white">Update available</Badge>
+                  <Badge className="bg-primary text-primary-foreground">Update available</Badge>
                 ) : (
                   <Badge className="bg-green-500 text-white flex items-center gap-1">
                     <CheckCircle className="h-3 w-3" />

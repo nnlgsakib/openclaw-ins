@@ -343,8 +343,8 @@ function TabButton({
       onClick={onClick}
       className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
         active
-          ? "border-blue-600 text-blue-700"
-          : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
+          ? "border-primary text-primary"
+          : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
       }`}
     >
       {icon}
@@ -543,7 +543,7 @@ function ChannelStatusBadge({ status }: { status: ChannelStatus }) {
       )
     case "disconnected":
       return (
-        <Badge variant="outline" className="text-slate-500">
+        <Badge variant="outline" className="text-muted-foreground">
           Disconnected
         </Badge>
       )
@@ -561,7 +561,7 @@ function ChannelStatusBadge({ status }: { status: ChannelStatus }) {
       return (
         <Badge
           variant="outline"
-          className="text-blue-600 border-blue-600"
+          className="text-primary border-primary"
         >
           <Loader2 className="mr-1 h-3 w-3 animate-spin" />
           Connecting

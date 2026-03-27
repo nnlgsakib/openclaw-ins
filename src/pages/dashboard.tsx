@@ -19,8 +19,8 @@ export default function DashboardPage() {
   return (
     <div className="flex flex-col gap-6 p-6">
       <div>
-        <h1 className="text-xl font-semibold text-slate-900">Dashboard</h1>
-        <p className="text-sm text-slate-500">Overview of your OpenClaw installation.</p>
+        <h1 className="text-xl font-semibold text-foreground">Dashboard</h1>
+        <p className="text-sm text-muted-foreground">Overview of your OpenClaw installation.</p>
       </div>
 
       {isLoading ? (
@@ -31,7 +31,7 @@ export default function DashboardPage() {
           <Card className="max-w-md">
             <CardHeader>
               <div className="flex items-center gap-2">
-                <Rocket className="h-5 w-5 text-blue-600" />
+                <Rocket className="h-5 w-5 text-primary" />
                 <CardTitle>
                   {status?.state === "running" ? "OpenClaw is Running" : "Get Started"}
                 </CardTitle>

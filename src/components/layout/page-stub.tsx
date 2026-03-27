@@ -9,8 +9,8 @@ interface PageStubProps {
 export function PageStub({ title }: PageStubProps) {
   return (
     <div className="flex flex-col items-start gap-4">
-      <h2 className="text-xl font-semibold text-slate-900">{title}</h2>
-      <p className="text-base text-slate-500">
+      <h2 className="text-xl font-semibold text-foreground">{title}</h2>
+      <p className="text-base text-muted-foreground">
         This section is coming in a future update.
       </p>
     </div>

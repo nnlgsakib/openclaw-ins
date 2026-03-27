@@ -21,7 +21,7 @@ const navItems = [
 
 /**
  * Sidebar navigation with 7 items using Lucide icons.
- * Active state: blue-600 left border (3px) + blue-50 background.
+ * Active state: red primary left border (3px) + red accent background.
  */
 export function SidebarNav() {
   return (
@@ -34,8 +34,8 @@ export function SidebarNav() {
           className={({ isActive }) =>
             `flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors ${
               isActive
-                ? "border-l-[3px] border-blue-600 bg-blue-50 font-medium text-blue-700"
-                : "border-l-[3px] border-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+                ? "border-l-[3px] border-primary bg-primary/10 font-medium text-primary"
+                : "border-l-[3px] border-transparent text-muted-foreground hover:bg-accent hover:text-foreground"
             }`
           }
         >

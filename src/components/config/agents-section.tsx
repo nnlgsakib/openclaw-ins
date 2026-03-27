@@ -34,7 +34,7 @@ export function AgentsSection() {
                 onClick={() => setAgents({ ...agents, sandboxMode: value })}
                 className={`rounded-lg border p-3 text-left text-sm transition-colors ${
                   agents.sandboxMode === value
-                    ? "border-blue-600 bg-blue-50 text-blue-700"
+                    ? "border-primary bg-primary/10 text-primary"
                     : "border-input hover:bg-accent"
                 }`}
               >
@@ -55,7 +55,7 @@ export function AgentsSection() {
                 onClick={() => setAgents({ ...agents, autonomy: value })}
                 className={`rounded-lg border p-3 text-left text-sm transition-colors ${
                   agents.autonomy === value
-                    ? "border-blue-600 bg-blue-50 text-blue-700"
+                    ? "border-primary bg-primary/10 text-primary"
                     : "border-input hover:bg-accent"
                 }`}
               >

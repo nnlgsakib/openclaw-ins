@@ -31,7 +31,7 @@ function getStatusIcon(description: string) {
     case "Cached":
       return <CheckCircle2 className="h-3 w-3 text-green-500" />;
     case "Verifying":
-      return <Loader2 className="h-3 w-3 animate-spin text-blue-500" />;
+      return <Loader2 className="h-3 w-3 animate-spin text-primary" />;
     case "Extracting":
       return <HardDrive className="h-3 w-3 text-amber-500" />;
     case "Downloaded":
