@@ -4,6 +4,8 @@ use crate::install::InstallResult;
 use crate::install::progress::emit_progress;
 use crate::install::verify::verify_gateway_health;
 use serde::{Deserialize, Serialize};
+use std::process::Stdio;
+use tokio::io::{AsyncBufReadExt, BufReader};
 
 const OPENCLAW_REPO: &str = "https://github.com/openclaw/openclaw.git";
 const GATEWAY_PORT: u16 = 18789;
@@ -111,19 +113,32 @@ pub async fn docker_install(
         );
         emit_log(app_handle, "Repository exists, pulling latest changes...");
 
-        let output = tokio::process::Command::new("git")
+        let mut child = tokio::process::Command::new("git")
             .args(["-C", repo_dir.to_str().unwrap(), "pull", "--ff-only"])
-            .output()
-            .await
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
             .map_err(|e| AppError::InstallationFailed {
                 reason: format!("Failed to run git pull: {e}"),
                 suggestion: "Ensure git is installed and on your PATH".into(),
             })?;
 
-        emit_log_lines(app_handle, &output.stdout);
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            emit_log(app_handle, &format!("git pull warning: {stderr}"));
+        let stderr = child.stderr.take().unwrap();
+        let mut reader = BufReader::new(stderr).lines();
+        while let Ok(Some(line)) = reader.next_line().await {
+            let trimmed = line.trim();
+            if !trimmed.is_empty() {
+                emit_log(app_handle, trimmed);
+            }
+        }
+
+        let status = child.wait().await.map_err(|e| AppError::InstallationFailed {
+            reason: format!("Failed to wait for git pull: {e}"),
+            suggestion: "Ensure git is installed and on your PATH".into(),
+        })?;
+
+        if !status.success() {
+            emit_log(app_handle, "git pull completed with warnings");
         }
     } else {
         // Fresh clone
@@ -135,7 +150,7 @@ pub async fn docker_install(
         );
         emit_log(app_handle, &format!("Cloning from {OPENCLAW_REPO}..."));
 
-        let output = tokio::process::Command::new("git")
+        let mut child = tokio::process::Command::new("git")
             .args([
                 "clone",
                 "--depth", "1",
@@ -143,21 +158,32 @@ pub async fn docker_install(
                 OPENCLAW_REPO,
                 repo_dir.to_str().unwrap(),
             ])
-            .output()
-            .await
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
             .map_err(|e| AppError::InstallationFailed {
                 reason: format!("Failed to run git clone: {e}"),
                 suggestion: "Ensure git is installed and on your PATH".into(),
             })?;
 
-        // git clone outputs progress to stderr
-        emit_log_lines(app_handle, &output.stderr);
-        emit_log_lines(app_handle, &output.stdout);
+        // git clone outputs progress to stderr — stream it line by line
+        let stderr = child.stderr.take().unwrap();
+        let mut reader = BufReader::new(stderr).lines();
+        while let Ok(Some(line)) = reader.next_line().await {
+            let trimmed = line.trim();
+            if !trimmed.is_empty() {
+                emit_log(app_handle, trimmed);
+            }
+        }
 
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
+        let status = child.wait().await.map_err(|e| AppError::InstallationFailed {
+            reason: format!("Failed to wait for git clone: {e}"),
+            suggestion: "Ensure git is installed and on your PATH".into(),
+        })?;
+
+        if !status.success() {
             return Err(AppError::InstallationFailed {
-                reason: format!("git clone failed: {stderr}"),
+                reason: "git clone failed".into(),
                 suggestion: "Check your internet connection. Ensure git is installed.".into(),
             });
         }
