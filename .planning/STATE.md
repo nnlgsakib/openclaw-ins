@@ -156,9 +156,10 @@ Last activity: 2026-03-26
 | 260327-bde | Optimize OpenClaw repo clone with --depth 1 shallow clone | 2026-03-27 | 59caa7a | [260327-bde-optimize-openclaw-repo-clone-to-skip-ful](./quick/260327-bde-optimize-openclaw-repo-clone-to-skip-ful/) |
 | 260327-bj5 | Stream git clone/pull progress in real-time | 2026-03-27 | 64a98de | [260327-bj5-stream-git-clone-progress-in-real-time-t](./quick/260327-bj5-stream-git-clone-progress-in-real-time-t/) |
 | 260327-bu3 | Fix Docker installation to use pre-built image and correct setup flow | 2026-03-27 | f838e0a | [260327-bu3-fix-docker-installation-read-openclaw-do](./quick/260327-bu3-fix-docker-installation-read-openclaw-do/) |
+| 260327-cpt | Fix git safe.directory warning on non-NTFS filesystems | 2026-03-27 | a716946 | [260327-cpt-fix-git-safe-directory-warning-on-non-nt](./quick/260327-cpt-fix-git-safe-directory-warning-on-non-nt/) |
 
 ## Session Continuity
 
-**Last action:** 2026-03-27 - Completed quick task 260327-bu3: Fix Docker installation to use pre-built image and correct setup flow
+**Last action:** 2026-03-27 - Completed quick task 260327-cpt: Fix git safe.directory warning on non-NTFS filesystems
 **Next action:** Run milestone lifecycle (audit → complete → cleanup)
 **Files to review:** `.planning/phases/10-access-control-activity/10-VERIFICATION.md`
