@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: UX Polish & Channels
 status: ready
-last_updated: "2026-03-26T23:34:00.000Z"
-last_activity: 2026-03-26
+last_updated: "2026-03-27T02:21:19.000Z"
+last_activity: 2026-03-27
 progress:
   total_phases: 4
   completed_phases: 4
@@ -154,9 +154,10 @@ Last activity: 2026-03-26
 | 260326-vkw | Change Docker installation from image pull to git clone + docker compose | 2026-03-26 | 03cf9f7 | [260326-vkw-change-docker-installation-from-image-pu](./quick/260326-vkw-change-docker-installation-from-image-pu/) |
 | 260326-w1f | Add install dir selection, clean install support, and cancel/pause installation | 2026-03-26 | c9c2948 | [260326-w1f-add-install-dir-selection-clean-install-](./quick/260326-w1f-add-install-dir-selection-clean-install-/) |
 | 260327-bde | Optimize OpenClaw repo clone with --depth 1 shallow clone | 2026-03-27 | 59caa7a | [260327-bde-optimize-openclaw-repo-clone-to-skip-ful](./quick/260327-bde-optimize-openclaw-repo-clone-to-skip-ful/) |
+| 260327-bj5 | Stream git clone/pull progress in real-time | 2026-03-27 | 64a98de | [260327-bj5-stream-git-clone-progress-in-real-time-t](./quick/260327-bj5-stream-git-clone-progress-in-real-time-t/) |
 
 ## Session Continuity
 
-**Last action:** 2026-03-27 - Completed quick task 260327-bde: Optimize OpenClaw repo clone with --depth 1 shallow clone
+**Last action:** 2026-03-27 - Completed quick task 260327-bj5: Stream git clone/pull progress in real-time
 **Next action:** Run milestone lifecycle (audit → complete → cleanup)
 **Files to review:** `.planning/phases/10-access-control-activity/10-VERIFICATION.md`
