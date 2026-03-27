@@ -116,6 +116,13 @@ pub async fn docker_install(
         );
         emit_log(app_handle, "Repository exists, pulling latest changes...");
 
+        // Mark repo directory as safe (needed for non-NTFS drives on Windows)
+        tokio::process::Command::new("git")
+            .args(["config", "--global", "--add", "safe.directory", repo_dir.to_str().unwrap()])
+            .output()
+            .await
+            .ok();
+
         let mut child = tokio::process::Command::new("git")
             .args(["-C", repo_dir.to_str().unwrap(), "pull", "--ff-only"])
             .stdout(Stdio::piped())
@@ -192,6 +199,13 @@ pub async fn docker_install(
         }
 
         emit_log(app_handle, "Repository cloned successfully.");
+
+        // Mark repo directory as safe (needed for non-NTFS drives on Windows)
+        tokio::process::Command::new("git")
+            .args(["config", "--global", "--add", "safe.directory", repo_dir.to_str().unwrap()])
+            .output()
+            .await
+            .ok();
     }
 
     emit_progress(app_handle, "cloning_repo", 30, "Repository ready.");
