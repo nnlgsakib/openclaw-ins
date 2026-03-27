@@ -8,6 +8,7 @@ use std::process::Stdio;
 use tokio::io::{AsyncBufReadExt, BufReader};
 
 const OPENCLAW_REPO: &str = "https://github.com/openclaw/openclaw.git";
+const OPENCLAW_IMAGE: &str = "ghcr.io/openclaw/openclaw:latest";
 const GATEWAY_PORT: u16 = 18789;
 const BRIDGE_PORT: u16 = 18790;
 
@@ -35,14 +36,16 @@ pub struct DockerLogEvent {
     pub timestamp: u64,
 }
 
-/// Docker Compose-based installation flow (from source repo).
+/// Docker Compose-based installation flow using pre-built image.
 ///
 /// Steps:
 /// 1. Check Docker availability
 /// 2. Create ~/.openclaw config, workspace, and repo directories
 /// 3. Clone (or pull) the OpenClaw repository
-/// 4. Write .env with generated gateway token
-/// 5. Start gateway via docker compose up (from repo)
+/// 4. Write .env with all required vars and create subdirectories
+/// 5a. Pull pre-built image from ghcr.io
+/// 5b. Configure gateway via docker compose run config commands
+/// 5c. Start gateway via docker compose up -d
 /// 6. Verify gateway health
 pub async fn docker_install(
     app_handle: &tauri::AppHandle,
@@ -107,7 +110,7 @@ pub async fn docker_install(
         // Repo already exists — pull latest
         emit_progress(
             app_handle,
-            "pulling_image",
+            "cloning_repo",
             20,
             "Updating OpenClaw repository...",
         );
@@ -144,7 +147,7 @@ pub async fn docker_install(
         // Fresh clone
         emit_progress(
             app_handle,
-            "pulling_image",
+            "cloning_repo",
             20,
             "Cloning OpenClaw repository...",
         );
@@ -191,22 +194,24 @@ pub async fn docker_install(
         emit_log(app_handle, "Repository cloned successfully.");
     }
 
-    emit_progress(app_handle, "pulling_image", 50, "Repository ready.");
+    emit_progress(app_handle, "cloning_repo", 30, "Repository ready.");
 
-    // Step 4: Write .env file with generated gateway token
+    // Step 4: Write .env file with all required vars and create subdirectories
     emit_progress(
         app_handle,
         "writing_env",
-        55,
+        35,
         "Generating gateway configuration...",
     );
     let gateway_token = generate_token();
     let env_content = format!(
-        "OPENCLAW_GATEWAY_TOKEN={gateway_token}\n\
+        "OPENCLAW_IMAGE={OPENCLAW_IMAGE}\n\
+         OPENCLAW_CONFIG_DIR={}\n\
+         OPENCLAW_WORKSPACE_DIR={}\n\
+         OPENCLAW_GATEWAY_TOKEN={gateway_token}\n\
          OPENCLAW_GATEWAY_PORT={GATEWAY_PORT}\n\
          OPENCLAW_BRIDGE_PORT={BRIDGE_PORT}\n\
-         OPENCLAW_CONFIG_DIR={}\n\
-         OPENCLAW_WORKSPACE_DIR={}\n",
+         OPENCLAW_GATEWAY_BIND=lan\n",
         config_dir.display(),
         workspace_dir.display(),
     );
@@ -220,33 +225,106 @@ pub async fn docker_install(
 
     emit_log(app_handle, &format!(".env written to {}", env_path.display()));
 
-    // Step 5: Build and start via docker compose up
-    emit_progress(
-        app_handle,
-        "starting_gateway",
-        65,
-        "Building and starting OpenClaw...",
-    );
-    emit_log(app_handle, "Running docker compose up --build -d...");
+    // Create required subdirectories under config_dir
+    for sub in &["identity", "agents/main/agent", "agents/main/sessions"] {
+        tokio::fs::create_dir_all(config_dir.join(sub)).await.ok();
+    }
+
+    // Step 5a: Pull pre-built image
+    emit_progress(app_handle, "pulling_image", 40, "Pulling pre-built OpenClaw image...");
+    emit_log(app_handle, &format!("Pulling {OPENCLAW_IMAGE}..."));
+
+    let mut child = tokio::process::Command::new("docker")
+        .args(["pull", OPENCLAW_IMAGE])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| AppError::InstallationFailed {
+            reason: format!("Failed to run docker pull: {e}"),
+            suggestion: "Ensure Docker is installed and running".into(),
+        })?;
+
+    let stderr = child.stderr.take().unwrap();
+    let mut reader = BufReader::new(stderr).lines();
+    while let Ok(Some(line)) = reader.next_line().await {
+        let trimmed = line.trim();
+        if !trimmed.is_empty() {
+            emit_log(app_handle, trimmed);
+        }
+    }
+
+    let status = child.wait().await.map_err(|e| AppError::InstallationFailed {
+        reason: format!("Failed to wait for docker pull: {e}"),
+        suggestion: "Ensure Docker is installed and running".into(),
+    })?;
+
+    if !status.success() {
+        return Err(AppError::InstallationFailed {
+            reason: format!("docker pull {OPENCLAW_IMAGE} failed"),
+            suggestion: "Check your internet connection and Docker Desktop is running".into(),
+        });
+    }
+
+    emit_log(app_handle, "Docker image pulled successfully.");
+    emit_progress(app_handle, "pulling_image", 55, "Image ready.");
+
+    // Step 5b: Configure gateway via docker compose run config commands
+    emit_progress(app_handle, "configuring", 60, "Configuring gateway...");
+    emit_log(app_handle, "Setting gateway configuration...");
+
+    let config_commands: &[(&[&str], &str)] = &[
+        (&["config", "set", "gateway.mode", "local"], "mode"),
+        (&["config", "set", "gateway.bind", "lan"], "bind"),
+        (&[
+            "config", "set", "gateway.controlUi.allowedOrigins",
+            r#"["http://localhost:18789","http://127.0.0.1:18789"]"#,
+            "--strict-json",
+        ], "origins"),
+    ];
+
+    for (args, label) in config_commands {
+        let output = tokio::process::Command::new("docker")
+            .args(["compose", "run", "--rm", "--no-deps", "-T", "--entrypoint", "node", "openclaw-gateway", "dist/index.js"])
+            .args(*args)
+            .current_dir(&repo_dir)
+            .output()
+            .await
+            .map_err(|e| AppError::InstallationFailed {
+                reason: format!("Failed to run config command ({label}): {e}"),
+                suggestion: "Ensure Docker Compose is available".into(),
+            })?;
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        if !stdout.trim().is_empty() {
+            emit_log(app_handle, stdout.trim());
+        }
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            emit_log(app_handle, &format!("config {label} warning: {stderr}"));
+        }
+    }
+
+    emit_log(app_handle, "Gateway configured.");
+
+    // Step 5c: Start gateway
+    emit_progress(app_handle, "starting_gateway", 75, "Starting OpenClaw gateway...");
+    emit_log(app_handle, "Starting gateway via docker compose...");
 
     let output = tokio::process::Command::new("docker")
-        .args(["compose", "up", "--build", "-d"])
+        .args(["compose", "up", "-d", "openclaw-gateway"])
         .current_dir(&repo_dir)
         .output()
         .await
         .map_err(|e| AppError::InstallationFailed {
-            reason: format!("Failed to run docker compose: {e}"),
-            suggestion:
-                "Ensure 'docker compose' (v2) is available. Run: docker compose version".into(),
+            reason: format!("Failed to start gateway: {e}"),
+            suggestion: "Ensure 'docker compose' (v2) is available".into(),
         })?;
 
-    // Emit compose stdout as log output
     let stdout_str = String::from_utf8_lossy(&output.stdout);
     if !stdout_str.trim().is_empty() {
         emit_log(app_handle, &format!("compose: {}", stdout_str.trim()));
     }
 
-    // Emit compose stderr as log output (errors visible in log viewer)
     let stderr_str = String::from_utf8_lossy(&output.stderr);
     if !stderr_str.trim().is_empty() {
         emit_log(app_handle, &format!("compose-err: {}", stderr_str.trim()));
@@ -260,14 +338,14 @@ pub async fn docker_install(
         });
     }
 
-    emit_log(app_handle, "Docker compose started successfully.");
-    emit_progress(app_handle, "starting_gateway", 85, "Services started.");
+    emit_log(app_handle, "Gateway started successfully.");
+    emit_progress(app_handle, "starting_gateway", 85, "Gateway running.");
 
     // Step 6: Verify gateway is healthy
     emit_progress(
         app_handle,
         "verifying",
-        95,
+        90,
         "Verifying installation...",
     );
     verify_gateway_health(30).await?;
