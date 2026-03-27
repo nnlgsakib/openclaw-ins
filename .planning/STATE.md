@@ -153,6 +153,7 @@ Last activity: 2026-03-26
 | 260326-v0s | Improve Docker installation UX - progress display and log viewer | 2026-03-26 | ebbc8ff | [260326-v0s-improve-docker-installation-ux-progress-](./quick/260326-v0s-improve-docker-installation-ux-progress-/) |
 | 260326-vkw | Change Docker installation from image pull to git clone + docker compose | 2026-03-26 | 03cf9f7 | [260326-vkw-change-docker-installation-from-image-pu](./quick/260326-vkw-change-docker-installation-from-image-pu/) |
 | 260326-w1f | Add install dir selection, clean install support, and cancel/pause installation | 2026-03-26 | c9c2948 | [260326-w1f-add-install-dir-selection-clean-install-](./quick/260326-w1f-add-install-dir-selection-clean-install-/) |
+| 260327-bde | Optimize OpenClaw repo clone with --depth 1 shallow clone | 2026-03-27 | 59caa7a | [260327-bde-optimize-openclaw-repo-clone-to-skip-ful](./quick/260327-bde-optimize-openclaw-repo-clone-to-skip-ful/) |
 
 ## Session Continuity
 
