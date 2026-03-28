@@ -1,91 +1,69 @@
-import { useState } from "react"
+import { useState } from "react";
 import {
   useChannels,
-  useDisconnectChannel,
-  useContacts,
-  useUpdateContactStatus,
-  useActivity,
+  useUpdateChannel,
   type ChannelInfo,
-  type ChannelStatus,
-  type ChannelType,
-  type Contact,
-  type ContactStatus,
-} from "@/hooks/use-channels"
-import { useOpenClawStatus } from "@/hooks/use-monitoring"
+} from "@/hooks/use-channels";
+import { useGatewayConfig } from "@/hooks/use-gateway";
+import { useGatewayStore } from "@/stores/use-gateway-store";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Skeleton } from "@/components/ui/skeleton"
-import { PairingModal } from "@/components/channels/pairing-modal"
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   RefreshCw,
-  MessageSquare,
   CheckCircle2,
   AlertTriangle,
-  HelpCircle,
   Loader2,
   ExternalLink,
-  Users,
-  Activity,
-  ShieldCheck,
-  ShieldX,
-  ShieldAlert,
-} from "lucide-react"
-import { useQueryClient } from "@tanstack/react-query"
-import { Link } from "react-router-dom"
-import { toast } from "sonner"
+  Eye,
+  EyeOff,
+} from "lucide-react";
+import { Link } from "react-router-dom";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
-const CHANNEL_ICONS: Record<ChannelType, string> = {
+const CHANNEL_ICONS: Record<string, string> = {
   whatsapp: "📱",
   telegram: "✈️",
   discord: "🎮",
   slack: "💬",
-}
-
-type Tab = "channels" | "contacts" | "activity"
+  signal: "🔒",
+  msteams: "👥",
+};
 
 export function Channels() {
-  const { data: channels, isLoading: channelsLoading } = useChannels()
-  const { data: status, isLoading: statusLoading } = useOpenClawStatus()
-  const queryClient = useQueryClient()
-  const [pairingChannel, setPairingChannel] = useState<ChannelInfo | null>(null)
-  const [activeTab, setActiveTab] = useState<Tab>("channels")
+  const connected = useGatewayStore((s) => s.connected);
+  const { data: channels, isLoading, refetch } = useChannels();
+  const { data: gatewayConfig } = useGatewayConfig();
 
-  const isRunning = status?.state === "running"
-  const isLoading = channelsLoading || statusLoading
+  const baseHash = (gatewayConfig as any)?.baseHash ?? "";
 
   const handleRefresh = () => {
-    queryClient.invalidateQueries({ queryKey: ["channels"] })
-    if (activeTab === "contacts") {
-      queryClient.invalidateQueries({ queryKey: ["channels", "contacts"] })
-    }
-    if (activeTab === "activity") {
-      queryClient.invalidateQueries({ queryKey: ["channels", "activity"] })
-    }
-  }
+    refetch();
+  };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
+    <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Channels</h1>
           <p className="text-muted-foreground">
-            Manage messaging channels, contacts, and activity
+            Manage messaging channels through the OpenClaw Gateway.
           </p>
         </div>
         <Button
           variant="outline"
           size="sm"
           onClick={handleRefresh}
-          disabled={isLoading}
+          disabled={isLoading || !connected}
         >
           <RefreshCw
             className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`}
@@ -94,533 +72,262 @@ export function Channels() {
         </Button>
       </div>
 
-      {/* Not running state */}
-      {!statusLoading && !isRunning && (
+      {!connected && (
         <Alert>
           <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>OpenClaw Not Running</AlertTitle>
+          <AlertTitle>Gateway Not Connected</AlertTitle>
           <AlertDescription>
-            Start OpenClaw to manage channel connections.{" "}
+            Connect to the Gateway to manage channel configurations.{" "}
             <Link
               to="/install"
-              className="underline font-medium hover:text-foreground"
+              className="font-medium underline hover:text-foreground"
             >
-              Install or start OpenClaw
-              <ExternalLink className="inline ml-1 h-3 w-3" />
+              Start Gateway
+              <ExternalLink className="ml-1 inline h-3 w-3" />
             </Link>
           </AlertDescription>
         </Alert>
       )}
 
-      {/* Tabs */}
-      <div className="flex gap-1 border-b">
-        <TabButton
-          active={activeTab === "channels"}
-          onClick={() => setActiveTab("channels")}
-          icon={<MessageSquare className="h-4 w-4" />}
-          label="Channels"
-        />
-        <TabButton
-          active={activeTab === "contacts"}
-          onClick={() => setActiveTab("contacts")}
-          icon={<Users className="h-4 w-4" />}
-          label="Contacts"
-        />
-        <TabButton
-          active={activeTab === "activity"}
-          onClick={() => setActiveTab("activity")}
-          icon={<Activity className="h-4 w-4" />}
-          label="Activity"
-        />
-      </div>
-
-      {/* Tab Content */}
-      {activeTab === "channels" && (
-        <ChannelsTab
-          channels={channels}
-          isLoading={isLoading}
-          onConnect={(channel) => setPairingChannel(channel)}
-        />
-      )}
-      {activeTab === "contacts" && <ContactsTab />}
-      {activeTab === "activity" && <ActivityTab />}
-
-      {/* Pairing Modal */}
-      <PairingModal
-        open={!!pairingChannel}
-        onOpenChange={(open) => !open && setPairingChannel(null)}
-        channel={pairingChannel}
-        onSuccess={() => {
-          queryClient.invalidateQueries({ queryKey: ["channels"] })
-        }}
-      />
-    </div>
-  )
-}
-
-// ─── Tab Components ──────────────────────────────────────────────
-
-function ChannelsTab({
-  channels,
-  isLoading,
-  onConnect,
-}: {
-  channels: ChannelInfo[] | undefined
-  isLoading: boolean
-  onConnect: (channel: ChannelInfo) => void
-}) {
-  return (
-    <>
-      <div className="grid gap-4 sm:grid-cols-2">
-        {isLoading &&
-          Array.from({ length: 4 }).map((_, i) => (
+      {connected && isLoading && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {Array.from({ length: 4 }).map((_, i) => (
             <Card key={i}>
               <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Skeleton className="h-5 w-5" />
-                    <Skeleton className="h-5 w-24" />
-                  </div>
-                  <Skeleton className="h-5 w-20 rounded-full" />
-                </div>
+                <Skeleton className="h-5 w-24" />
+                <Skeleton className="h-4 w-32" />
               </CardHeader>
               <CardContent>
-                <Skeleton className="h-4 w-32" />
-              </CardContent>
-            </Card>
-          ))}
-
-        {!isLoading &&
-          channels?.map((channel) => (
-            <ChannelCard
-              key={channel.id}
-              channel={channel}
-              onConnect={() => onConnect(channel)}
-            />
-          ))}
-      </div>
-
-      {!isLoading && channels?.length === 0 && (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <MessageSquare className="h-12 w-12 text-muted-foreground mb-4" />
-            <p className="text-sm text-muted-foreground">
-              No channels available
-            </p>
-          </CardContent>
-        </Card>
-      )}
-    </>
-  )
-}
-
-function ContactsTab() {
-  const { data: contacts, isLoading } = useContacts()
-
-  const pendingCount = contacts?.filter((c) => c.status === "pending").length ?? 0
-
-  return (
-    <div className="space-y-4">
-      {pendingCount > 0 && (
-        <Alert>
-          <ShieldAlert className="h-4 w-4" />
-          <AlertTitle>Pending Approval</AlertTitle>
-          <AlertDescription>
-            {pendingCount} contact{pendingCount > 1 ? "s" : ""} waiting for
-            your approval.
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {isLoading && (
-        <div className="space-y-3">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <Card key={i}>
-              <CardContent className="flex items-center justify-between py-4">
-                <div className="flex items-center gap-3">
-                  <Skeleton className="h-8 w-8 rounded-full" />
-                  <div className="space-y-1">
-                    <Skeleton className="h-4 w-28" />
-                    <Skeleton className="h-3 w-20" />
-                  </div>
-                </div>
-                <Skeleton className="h-8 w-24" />
+                <Skeleton className="h-9 w-20" />
               </CardContent>
             </Card>
           ))}
         </div>
       )}
 
-      {!isLoading && contacts?.length === 0 && (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <Users className="h-12 w-12 text-muted-foreground mb-4" />
-            <p className="text-sm text-muted-foreground">No contacts yet</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Contacts appear when someone messages your agent for the first time
-            </p>
-          </CardContent>
-        </Card>
+      {connected && !isLoading && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {channels?.map((channel) => (
+            <ChannelCard
+              key={channel.provider}
+              channel={channel}
+              baseHash={baseHash}
+            />
+          ))}
+        </div>
       )}
-
-      {!isLoading &&
-        contacts?.map((contact) => (
-          <ContactCard key={contact.id} contact={contact} />
-        ))}
     </div>
-  )
-}
-
-function ActivityTab() {
-  const { data: activity, isLoading } = useActivity()
-
-  return (
-    <div className="space-y-3">
-      {isLoading &&
-        Array.from({ length: 5 }).map((_, i) => (
-          <Card key={i}>
-            <CardContent className="flex items-center gap-3 py-3">
-              <Skeleton className="h-8 w-8 rounded-full" />
-              <div className="flex-1 space-y-1">
-                <Skeleton className="h-4 w-32" />
-                <Skeleton className="h-3 w-48" />
-              </div>
-              <Skeleton className="h-3 w-16" />
-            </CardContent>
-          </Card>
-        ))}
-
-      {!isLoading && activity?.length === 0 && (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <Activity className="h-12 w-12 text-muted-foreground mb-4" />
-            <p className="text-sm text-muted-foreground">No recent activity</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Messages from your channels will appear here
-            </p>
-          </CardContent>
-        </Card>
-      )}
-
-      {!isLoading &&
-        activity?.map((entry) => (
-          <Card key={entry.id}>
-            <CardContent className="flex items-center gap-3 py-3">
-              <span className="text-lg">
-                {CHANNEL_ICONS[entry.channelType]}
-              </span>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{entry.sender}</p>
-                <p className="text-xs text-muted-foreground truncate">
-                  {entry.preview}
-                </p>
-              </div>
-              <span className="text-xs text-muted-foreground shrink-0">
-                {formatRelativeTime(entry.timestamp)}
-              </span>
-            </CardContent>
-          </Card>
-        ))}
-    </div>
-  )
-}
-
-// ─── Internal Components ───────────────────────────────────────────
-
-function TabButton({
-  active,
-  onClick,
-  icon,
-  label,
-}: {
-  active: boolean
-  onClick: () => void
-  icon: React.ReactNode
-  label: string
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-        active
-          ? "border-primary text-primary"
-          : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
-      }`}
-    >
-      {icon}
-      {label}
-    </button>
-  )
+  );
 }
 
 function ChannelCard({
   channel,
-  onConnect,
+  baseHash,
 }: {
-  channel: ChannelInfo
-  onConnect: () => void
+  channel: ChannelInfo;
+  baseHash: string;
 }) {
-  const [confirmDisconnect, setConfirmDisconnect] = useState(false)
-  const disconnectMutation = useDisconnectChannel()
+  const [expanded, setExpanded] = useState(false);
+  const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
+  const [showTokens, setShowTokens] = useState<Record<string, boolean>>({});
+  const updateChannel = useUpdateChannel();
 
-  const handleDisconnect = () => {
-    disconnectMutation.mutate(channel.id, {
-      onSuccess: () => {
-        toast.success(`${channel.name} disconnected`)
-        setConfirmDisconnect(false)
-      },
-      onError: () => {
-        toast.error(`Failed to disconnect ${channel.name}`)
-        setConfirmDisconnect(false)
-      },
-    })
-  }
+  const handleToggle = async () => {
+    if (!baseHash) {
+      toast.error("No config hash available — refresh the page");
+      return;
+    }
+    try {
+      await updateChannel.mutateAsync({
+        provider: channel.provider,
+        config: { enabled: !channel.enabled },
+        baseHash,
+      });
+      toast.success(
+        `${channel.name} ${channel.enabled ? "disabled" : "enabled"}`
+      );
+    } catch (e) {
+      toast.error(`Failed to update ${channel.name}: ${e}`);
+    }
+  };
+
+  const handleSaveConfig = async () => {
+    if (!baseHash) {
+      toast.error("No config hash available — refresh the page");
+      return;
+    }
+    try {
+      const configToSave: Record<string, unknown> = { ...fieldValues, enabled: true };
+      // OpenClaw requires allowFrom=["*"] when dmPolicy is "open"
+      if (configToSave.dmPolicy === "open") {
+        configToSave.allowFrom = ["*"];
+      }
+      await updateChannel.mutateAsync({
+        provider: channel.provider,
+        config: configToSave,
+        baseHash,
+      });
+      toast.success(`${channel.name} configuration saved`);
+      setExpanded(false);
+    } catch (e) {
+      toast.error(`Failed to save ${channel.name} config: ${e}`);
+    }
+  };
+
+  const dmPolicy = (channel.config.dmPolicy as string) ?? "pairing";
 
   return (
-    <Card>
+    <Card
+      className={cn(
+        "transition-colors",
+        channel.enabled ? "border-primary/50" : ""
+      )}
+    >
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2 text-base">
-            <span>{CHANNEL_ICONS[channel.channelType]}</span>
+            <span>{CHANNEL_ICONS[channel.provider] ?? "📡"}</span>
             {channel.name}
           </CardTitle>
-          <ChannelStatusBadge status={channel.status} />
+          <div className="flex items-center gap-2">
+            {channel.enabled ? (
+              <Badge className="bg-green-600 hover:bg-green-700">
+                <CheckCircle2 className="mr-1 h-3 w-3" />
+                Enabled
+              </Badge>
+            ) : (
+              <Badge variant="outline">Disabled</Badge>
+            )}
+          </div>
         </div>
-        <CardDescription>
-          {channel.lastActiveAt
-            ? `Last active: ${formatRelativeTime(channel.lastActiveAt)}`
-            : "Never connected"}
-        </CardDescription>
+        <CardDescription>{channel.description}</CardDescription>
       </CardHeader>
-      <CardContent>
-        {confirmDisconnect ? (
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">
-              Disconnect {channel.name}?
-            </span>
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={handleDisconnect}
-              disabled={disconnectMutation.isPending}
-            >
-              {disconnectMutation.isPending && (
-                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-              )}
-              Confirm
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setConfirmDisconnect(false)}
-            >
-              Cancel
-            </Button>
-          </div>
-        ) : channel.status === "connected" ? (
+      <CardContent className="space-y-3">
+        <div className="flex items-center gap-2">
           <Button
-            variant="outline"
             size="sm"
-            onClick={() => setConfirmDisconnect(true)}
+            variant={channel.enabled ? "outline" : "default"}
+            onClick={handleToggle}
+            disabled={updateChannel.isPending}
           >
-            Disconnect
+            {updateChannel.isPending ? (
+              <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+            ) : null}
+            {channel.enabled ? "Disable" : "Enable"}
           </Button>
-        ) : channel.status === "expired" ? (
-          <div className="flex items-center gap-2">
-            <Alert variant="default" className="flex-1">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertDescription className="text-xs">
-                Session expired — reconnect to continue
-              </AlertDescription>
-            </Alert>
-            <Button size="sm" onClick={onConnect}>
-              Reconnect
+          {channel.setupFields.length > 0 && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setExpanded(!expanded)}
+            >
+              {expanded ? "Hide Config" : "Configure"}
+            </Button>
+          )}
+          <a
+            href={channel.docsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="ml-auto text-xs text-muted-foreground hover:text-foreground"
+          >
+            Docs <ExternalLink className="ml-0.5 inline h-3 w-3" />
+          </a>
+        </div>
+
+        {/* Expanded config fields */}
+        {expanded && channel.setupFields.length > 0 && (
+          <div className="space-y-3 border-t border-border pt-3">
+            {channel.setupFields.map((field) => (
+              <div key={field.key} className="space-y-1">
+                <label className="text-sm font-medium">
+                  {field.label}
+                  {field.required && (
+                    <span className="ml-1 text-destructive">*</span>
+                  )}
+                </label>
+                <div className="relative">
+                  <input
+                    type={
+                      field.type === "password" && !showTokens[field.key]
+                        ? "password"
+                        : "text"
+                    }
+                    placeholder={field.placeholder}
+                    value={fieldValues[field.key] ?? ""}
+                    onChange={(e) =>
+                      setFieldValues((prev) => ({
+                        ...prev,
+                        [field.key]: e.target.value,
+                      }))
+                    }
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
+                  {field.type === "password" && (
+                    <button
+                      onClick={() =>
+                        setShowTokens((prev) => ({
+                          ...prev,
+                          [field.key]: !prev[field.key],
+                        }))
+                      }
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      {showTokens[field.key] ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+
+            {/* DM Policy */}
+            <div className="space-y-1">
+              <label className="text-sm font-medium">DM Policy</label>
+              <select
+                value={fieldValues.dmPolicy ?? dmPolicy}
+                onChange={(e) =>
+                  setFieldValues((prev) => ({
+                    ...prev,
+                    dmPolicy: e.target.value,
+                  }))
+                }
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value="pairing">
+                  Pairing — unknown senders get a one-time code
+                </option>
+                <option value="allowlist">
+                  Allowlist — only approved contacts
+                </option>
+                <option value="open">Open — allow all DMs</option>
+                <option value="disabled">Disabled — ignore all DMs</option>
+              </select>
+            </div>
+
+            <Button
+              size="sm"
+              onClick={handleSaveConfig}
+              disabled={updateChannel.isPending}
+            >
+              {updateChannel.isPending ? (
+                <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+              ) : null}
+              Save Configuration
             </Button>
           </div>
-        ) : channel.status === "connecting" ? (
-          <Button size="sm" disabled>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Connecting...
-          </Button>
-        ) : (
-          <Button size="sm" onClick={onConnect}>
-            Connect
-          </Button>
+        )}
+
+        {channel.setupFields.length === 0 && channel.enabled && (
+          <p className="text-xs text-muted-foreground">
+            {channel.provider === "signal"
+              ? "Requires signal-cli to be installed separately."
+              : "Requires plugin installation after Gateway is running."}
+          </p>
         )}
       </CardContent>
     </Card>
-  )
-}
-
-function ContactCard({ contact }: { contact: Contact }) {
-  const updateMutation = useUpdateContactStatus()
-
-  const handleAction = (newStatus: string, successMessage: string) => {
-    updateMutation.mutate(
-      { contactId: contact.id, newStatus },
-      {
-        onSuccess: () => toast.success(successMessage),
-        onError: () => toast.error("Failed to update contact"),
-      }
-    )
-  }
-
-  return (
-    <Card>
-      <CardContent className="flex items-center justify-between py-4">
-        <div className="flex items-center gap-3">
-          <span className="text-lg">{CHANNEL_ICONS[contact.channelType]}</span>
-          <div>
-            <p className="text-sm font-medium">{contact.name}</p>
-            <p className="text-xs text-muted-foreground">
-              {contact.lastMessageAt
-                ? `Last message: ${formatRelativeTime(contact.lastMessageAt)}`
-                : "No messages yet"}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <ContactStatusBadge status={contact.status} />
-          {contact.status === "pending" && (
-            <div className="flex gap-1">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => handleAction("approved", `${contact.name} approved`)}
-                disabled={updateMutation.isPending}
-              >
-                <ShieldCheck className="h-4 w-4" />
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => handleAction("blocked", `${contact.name} blocked`)}
-                disabled={updateMutation.isPending}
-              >
-                <ShieldX className="h-4 w-4" />
-              </Button>
-            </div>
-          )}
-          {contact.status === "approved" && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => handleAction("blocked", `${contact.name} blocked`)}
-              disabled={updateMutation.isPending}
-            >
-              Block
-            </Button>
-          )}
-          {contact.status === "blocked" && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() =>
-                handleAction("approved", `${contact.name} unblocked`)
-              }
-              disabled={updateMutation.isPending}
-            >
-              Unblock
-            </Button>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-function ChannelStatusBadge({ status }: { status: ChannelStatus }) {
-  switch (status) {
-    case "connected":
-      return (
-        <Badge
-          variant="default"
-          className="bg-green-600 hover:bg-green-700"
-        >
-          <CheckCircle2 className="mr-1 h-3 w-3" />
-          Connected
-        </Badge>
-      )
-    case "disconnected":
-      return (
-        <Badge variant="outline" className="text-muted-foreground">
-          Disconnected
-        </Badge>
-      )
-    case "expired":
-      return (
-        <Badge
-          variant="outline"
-          className="text-yellow-600 border-yellow-600"
-        >
-          <AlertTriangle className="mr-1 h-3 w-3" />
-          Expired
-        </Badge>
-      )
-    case "connecting":
-      return (
-        <Badge
-          variant="outline"
-          className="text-primary border-primary"
-        >
-          <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-          Connecting
-        </Badge>
-      )
-    default:
-      return (
-        <Badge variant="secondary">
-          <HelpCircle className="mr-1 h-3 w-3" />
-          Unknown
-        </Badge>
-      )
-  }
-}
-
-function ContactStatusBadge({ status }: { status: ContactStatus }) {
-  switch (status) {
-    case "approved":
-      return (
-        <Badge
-          variant="default"
-          className="bg-green-600 hover:bg-green-700"
-        >
-          <ShieldCheck className="mr-1 h-3 w-3" />
-          Approved
-        </Badge>
-      )
-    case "pending":
-      return (
-        <Badge
-          variant="outline"
-          className="text-yellow-600 border-yellow-600"
-        >
-          <ShieldAlert className="mr-1 h-3 w-3" />
-          Pending
-        </Badge>
-      )
-    case "blocked":
-      return (
-        <Badge variant="destructive">
-          <ShieldX className="mr-1 h-3 w-3" />
-          Blocked
-        </Badge>
-      )
-    default:
-      return <Badge variant="secondary">{status}</Badge>
-  }
-}
-
-function formatRelativeTime(isoString: string): string {
-  const date = new Date(isoString)
-  const now = new Date()
-  const diffMs = now.getTime() - date.getTime()
-  const diffMins = Math.floor(diffMs / 60_000)
-
-  if (diffMins < 1) return "just now"
-  if (diffMins < 60) return `${diffMins}m ago`
-  const diffHours = Math.floor(diffMins / 60)
-  if (diffHours < 24) return `${diffHours}h ago`
-  const diffDays = Math.floor(diffHours / 24)
-  return `${diffDays}d ago`
+  );
 }

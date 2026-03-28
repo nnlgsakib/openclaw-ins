@@ -1,4 +1,4 @@
-import { useConfigStore, type BindMount } from "@/stores/use-config-store";
+import { useConfigStore, type SandboxConfig, type BindMount } from "@/stores/use-config-store";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
@@ -6,6 +6,14 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, X, FolderOpen } from "lucide-react";
 import { open } from "@tauri-apps/plugin-dialog";
 
+const DEFAULT_SANDBOX: SandboxConfig = {
+  enabled: false,
+  backend: "docker",
+  scope: "non-main",
+  workspaceAccess: "read-only",
+  networkPolicy: "none",
+  bindMounts: [],
+};
 
 const BACKEND_OPTIONS = [
   { value: "docker", label: "Docker" },
@@ -58,13 +66,10 @@ function RadioGroup({
 
 export function SandboxSection() {
   const { config, setSandbox } = useConfigStore();
-  const sandbox = config.sandbox || {
-    enabled: false,
-    backend: "docker",
-    scope: "non-main",
-    workspaceAccess: "read-only",
-    networkPolicy: "none",
-    bindMounts: [],
+  const sandbox: SandboxConfig = {
+    ...DEFAULT_SANDBOX,
+    ...(config.sandbox as Partial<SandboxConfig> | undefined),
+    bindMounts: ((config.sandbox as any)?.bindMounts ?? DEFAULT_SANDBOX.bindMounts) as BindMount[],
   };
 
   // Handle sandbox toggle

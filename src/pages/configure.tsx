@@ -1,32 +1,42 @@
 import { useEffect } from "react";
 import { useConfig, useSaveConfig, useValidateConfig } from "@/hooks/use-config";
+import { useGatewayConfig, useGatewayConfigPatch } from "@/hooks/use-gateway";
+import { useGatewayStore } from "@/stores/use-gateway-store";
 import { useConfigStore } from "@/stores/use-config-store";
 import { ProviderSection } from "@/components/config/provider-section";
 import { SandboxSection } from "@/components/config/sandbox-section";
 import { ToolsSection } from "@/components/config/tools-section";
 import { AgentsSection } from "@/components/config/agents-section";
-import { invoke } from "@tauri-apps/api/core";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { showError } from "@/lib/toast-errors";
-import { Save, Loader2 } from "lucide-react";
+import { Save, Loader2, Globe } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export function Configure() {
+  const gatewayConnected = useGatewayStore((s) => s.connected);
+  const { data: gatewayConfig } = useGatewayConfig();
+  const gatewayPatch = useGatewayConfigPatch();
   const { data: config, isLoading, error, isError } = useConfig();
   const saveConfig = useSaveConfig();
   const validateConfig = useValidateConfig();
   const { config: storeConfig, isDirty, setConfig, markClean } = useConfigStore();
   const [isSaving, setIsSaving] = useState(false);
 
-  // Load config into store on mount
+  const baseHash = (gatewayConfig as any)?.baseHash ?? "";
+
+  // Load config into store on mount — prefer Gateway config over file config
   useEffect(() => {
-    if (config) {
+    if (gatewayConnected && gatewayConfig) {
+      const gwConf = (gatewayConfig as any)?.config ?? gatewayConfig;
+      setConfig(gwConf);
+    } else if (config) {
       setConfig(config);
     }
-  }, [config, setConfig]);
+  }, [config, gatewayConfig, gatewayConnected, setConfig]);
 
   // Show error if query fails
   if (isError && error) {
@@ -38,10 +48,6 @@ export function Configure() {
 
     setIsSaving(true);
     try {
-      // Track sandbox transition before save
-      const wasSandboxDisabled = !storeConfig?.sandbox?.enabled;
-      const isSandboxNowEnabled = storeConfig?.sandbox?.enabled;
-
       // First validate
       const validation = await validateConfig.mutateAsync(storeConfig);
 
@@ -54,25 +60,17 @@ export function Configure() {
         return;
       }
 
-      // Then save
-      await saveConfig.mutateAsync(storeConfig);
-      markClean();
-      toast.success("Configuration saved successfully");
-
-      // Trigger sandbox setup if sandbox was just enabled
-      if (wasSandboxDisabled && isSandboxNowEnabled) {
-        toast.info("Setting up sandbox environment...");
-        try {
-          await invoke("setup_sandbox", { config: storeConfig });
-          toast.success("Sandbox setup complete");
-        } catch (err) {
-          const msg = String(err);
-          if (msg.includes("not found") || msg.includes("unknown")) {
-            toast.info("Sandbox setup pending — backend command not yet implemented");
-          } else {
-            toast.error(`Sandbox setup failed: ${err}`);
-          }
-        }
+      // Prefer Gateway hot-reload when connected
+      if (gatewayConnected && baseHash) {
+        const raw = JSON.stringify(storeConfig);
+        await gatewayPatch.mutateAsync({ raw, baseHash });
+        markClean();
+        toast.success("Configuration applied via Gateway hot-reload");
+      } else {
+        // Fall back to file-based save
+        await saveConfig.mutateAsync(storeConfig);
+        markClean();
+        toast.success("Configuration saved (will apply on next Gateway start)");
       }
     } catch (err) {
       showError(err as Error);
@@ -83,12 +81,25 @@ export function Configure() {
 
   return (
     <div className="space-y-6">
+      {/* Gateway status banner */}
+      {!gatewayConnected && (
+        <Alert>
+          <Globe className="h-4 w-4" />
+          <AlertDescription>
+            Gateway not connected — changes will be saved to file and apply on next Gateway start.
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Header with Save button */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Configure</h1>
           <p className="text-muted-foreground">
             Configure your OpenClaw AI provider and sandbox settings
+            {gatewayConnected && (
+              <span className="ml-2 text-green-500">(Gateway hot-reload active)</span>
+            )}
           </p>
         </div>
         <Button

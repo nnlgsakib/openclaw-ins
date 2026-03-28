@@ -49,6 +49,27 @@ pub fn run() {
             commands::channels::get_contacts,
             commands::channels::update_contact_status,
             commands::channels::get_activity,
+            // Gateway integration (Phase 12)
+            commands::nodejs::check_nodejs,
+            commands::nodejs::check_openclaw,
+            commands::nodejs::check_prerequisites,
+            commands::nodejs::install_openclaw_script,
+            commands::nodejs::reinstall_openclaw,
+            commands::gateway::start_gateway,
+            commands::gateway::stop_gateway,
+            commands::gateway::restart_gateway,
+            commands::gateway::get_gateway_status,
+            commands::gateway::kill_gateway_on_port,
+            commands::gateway_ws::gateway_ws_connect,
+            commands::gateway_ws::gateway_ws_call,
+            commands::gateway_ws::gateway_ws_disconnect,
+            commands::models::fetch_provider_models,
+            commands::control_ui::open_control_ui,
+            commands::control_ui::close_control_ui,
+            commands::desktop_config::read_desktop_config,
+            commands::desktop_config::write_desktop_config,
+            commands::desktop_config::write_auth_profile,
+            commands::desktop_config::write_env_key,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

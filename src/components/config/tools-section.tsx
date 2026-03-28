@@ -1,6 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
-import { useConfigStore } from "@/stores/use-config-store";
+import { useConfigStore, type ToolsConfig } from "@/stores/use-config-store";
 
 const TOOLS = [
   { key: "shell" as const, label: "Shell", description: "Execute shell commands on the host" },
@@ -9,8 +9,11 @@ const TOOLS = [
   { key: "api" as const, label: "API", description: "Make HTTP requests to external APIs" },
 ] as const;
 
+const DEFAULT_TOOLS: ToolsConfig = { shell: true, filesystem: true, browser: false, api: true };
+
 export function ToolsSection() {
-  const tools = useConfigStore((s) => s.config.tools) ?? { shell: true, filesystem: true, browser: false, api: true };
+  const configTools = useConfigStore((s) => s.config.tools) as Partial<ToolsConfig> | undefined;
+  const tools: ToolsConfig = { ...DEFAULT_TOOLS, ...configTools };
   const setTools = useConfigStore((s) => s.setTools);
 
   return (

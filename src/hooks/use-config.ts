@@ -1,19 +1,24 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { invoke } from "@tauri-apps/api/core";
-import type { OpenClawConfig } from "@/stores/use-config-store";
+
+/**
+ * OpenClaw config is a free-form JSON object matching the OpenClaw schema.
+ * See: https://docs.openclaw.ai/gateway/configuration
+ */
+export type OpenClawConfigJson = Record<string, unknown>;
 
 export function useConfig() {
-  return useQuery<OpenClawConfig>({
+  return useQuery<OpenClawConfigJson>({
     queryKey: ["config"],
-    queryFn: async () => await invoke<OpenClawConfig>("read_config"),
-    staleTime: Infinity, // Config loaded once, mutated explicitly
+    queryFn: async () => await invoke<OpenClawConfigJson>("read_config"),
+    staleTime: Infinity,
   });
 }
 
 export function useSaveConfig() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (config: OpenClawConfig) => {
+    mutationFn: async (config: OpenClawConfigJson) => {
       await invoke("write_config", { config });
     },
     onSuccess: () => {
@@ -34,7 +39,7 @@ export interface ValidationResult {
 
 export function useValidateConfig() {
   return useMutation({
-    mutationFn: async (config: OpenClawConfig) => {
+    mutationFn: async (config: OpenClawConfigJson) => {
       return await invoke<ValidationResult>("validate_config", { config });
     },
   });

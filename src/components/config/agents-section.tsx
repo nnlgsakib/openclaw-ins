@@ -1,5 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useConfigStore } from "@/stores/use-config-store";
+import { useConfigStore, type AgentsConfig } from "@/stores/use-config-store";
 
 const SANDBOX_MODES = [
   { value: "docker", label: "Docker", description: "Full container isolation" },
@@ -13,8 +13,11 @@ const AUTONOMY_LEVELS = [
   { value: "high", label: "High", description: "Autonomous execution" },
 ];
 
+const DEFAULT_AGENTS: AgentsConfig = { sandboxMode: "docker", autonomy: "medium" };
+
 export function AgentsSection() {
-  const agents = useConfigStore((s) => s.config.agents) ?? { sandboxMode: "docker", autonomy: "medium" };
+  const configAgents = useConfigStore((s) => s.config.agents) as Partial<AgentsConfig> | undefined;
+  const agents: AgentsConfig = { ...DEFAULT_AGENTS, ...configAgents };
   const setAgents = useConfigStore((s) => s.setAgents);
 
   return (
