@@ -1,198 +1,161 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { invoke } from "@tauri-apps/api/core"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { invoke } from "@tauri-apps/api/core";
+import { useGatewayStore } from "@/stores/use-gateway-store";
 
 // ─── Types ────────────────────────────────────────────────────────
 
-export type ChannelStatus = "connected" | "disconnected" | "expired" | "connecting"
-
-export type ChannelType = "whatsapp" | "telegram" | "discord" | "slack"
+export interface ChannelSetupField {
+  key: string;
+  label: string;
+  type: "text" | "password" | "select";
+  placeholder?: string;
+  required?: boolean;
+  options?: { label: string; value: string }[];
+}
 
 export interface ChannelInfo {
-  id: string
-  name: string
-  channelType: ChannelType
-  status: ChannelStatus
-  lastActiveAt: string | null
+  provider: string;
+  name: string;
+  description: string;
+  enabled: boolean;
+  config: Record<string, unknown>;
+  setupFields: ChannelSetupField[];
+  docsUrl: string;
 }
 
-export interface WhatsAppQrData {
-  qrCode: string
-  expiresAt: string | null
-}
+export type DmPolicy = "pairing" | "allowlist" | "open" | "disabled";
 
-export interface TokenValidationResult {
-  valid: boolean
-  message: string
-}
+// Legacy types for backward compat
+export type ChannelStatus = "connected" | "disconnected" | "expired" | "connecting";
+export type ChannelType = "whatsapp" | "telegram" | "discord" | "slack";
 
-export type ContactStatus = "approved" | "pending" | "blocked"
+// ─── Constants ────────────────────────────────────────────────────
 
-export interface Contact {
-  id: string
-  name: string
-  channelType: ChannelType
-  status: ContactStatus
-  lastMessageAt: string | null
-}
+export const CHANNEL_PROVIDERS: Omit<ChannelInfo, "enabled" | "config">[] = [
+  {
+    provider: "whatsapp",
+    name: "WhatsApp",
+    description: "Connect via WhatsApp Web pairing",
+    setupFields: [
+      { key: "allowFrom", label: "Allow From", type: "text", placeholder: "+1234567890 (comma-separated)" },
+    ],
+    docsUrl: "https://docs.openclaw.ai/channels/whatsapp",
+  },
+  {
+    provider: "telegram",
+    name: "Telegram",
+    description: "Connect a Telegram bot via BotFather token",
+    setupFields: [
+      { key: "botToken", label: "Bot Token", type: "password", placeholder: "123456:ABC-DEF...", required: true },
+    ],
+    docsUrl: "https://docs.openclaw.ai/channels/telegram",
+  },
+  {
+    provider: "discord",
+    name: "Discord",
+    description: "Connect a Discord bot",
+    setupFields: [
+      { key: "token", label: "Bot Token", type: "password", placeholder: "MTIz...", required: true },
+    ],
+    docsUrl: "https://docs.openclaw.ai/channels/discord",
+  },
+  {
+    provider: "slack",
+    name: "Slack",
+    description: "Connect a Slack app (Socket Mode)",
+    setupFields: [
+      { key: "botToken", label: "Bot Token", type: "password", placeholder: "xoxb-...", required: true },
+      { key: "appToken", label: "App Token", type: "password", placeholder: "xapp-...", required: true },
+    ],
+    docsUrl: "https://docs.openclaw.ai/channels/slack",
+  },
+  {
+    provider: "signal",
+    name: "Signal",
+    description: "Requires signal-cli installation",
+    setupFields: [],
+    docsUrl: "https://docs.openclaw.ai/channels/signal",
+  },
+  {
+    provider: "msteams",
+    name: "Microsoft Teams",
+    description: "Requires plugin installation",
+    setupFields: [],
+    docsUrl: "https://docs.openclaw.ai/channels/msteams",
+  },
+];
 
-export interface ActivityEntry {
-  id: string
-  sender: string
-  channelType: ChannelType
-  preview: string
-  timestamp: string
-}
-
-// ─── Hooks ────────────────────────────────────────────────────────
+// ─── Gateway-based Hooks ──────────────────────────────────────────
 
 /**
- * Fetches all available channels from OpenClaw.
- * Polls every 60s when all channels are healthy,
- * every 30s when any channel is expired or disconnected.
+ * Fetches channel configuration from Gateway config.get.
  */
 export function useChannels() {
+  const connected = useGatewayStore((s) => s.connected);
+
   return useQuery<ChannelInfo[]>({
     queryKey: ["channels"],
     queryFn: async () => {
-      return await invoke<ChannelInfo[]>("get_channels")
+      const response = await invoke<any>("gateway_ws_call", {
+        method: "config.get",
+        params: {},
+      });
+      const config = response?.result?.config ?? response?.config ?? {};
+      const channelsConfig = config.channels ?? {};
+
+      return CHANNEL_PROVIDERS.map((provider) => {
+        const providerConfig = channelsConfig[provider.provider] ?? {};
+        return {
+          ...provider,
+          enabled: providerConfig.enabled ?? Object.keys(providerConfig).length > 0,
+          config: providerConfig,
+        };
+      });
     },
-    refetchInterval: (query) => {
-      const channels = query.state.data
-      const hasExpired = channels?.some((c) => c.status === "expired")
-      const hasDisconnected = channels?.some((c) => c.status === "disconnected")
-      if (hasExpired || hasDisconnected) return 30_000
-      return 60_000
-    },
+    enabled: connected,
+    staleTime: 30000,
     retry: 1,
-  })
+  });
 }
 
 /**
- * Disconnect a channel by ID.
- * Invalidates the channels query on success.
+ * Mutation hook to update a single channel config via Gateway config.patch.
  */
-export function useDisconnectChannel() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async (channelId: string) => {
-      return await invoke<ChannelInfo>("disconnect_channel", { channelId })
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["channels"] })
-    },
-  })
-}
-
-/**
- * Initiate connection for a channel by ID.
- * Invalidates the channels query on success.
- */
-export function useConnectChannel() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async (channelId: string) => {
-      return await invoke<ChannelInfo>("connect_channel", { channelId })
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["channels"] })
-    },
-  })
-}
-
-/**
- * Fetch WhatsApp QR code for pairing.
- * Polls every 5s while enabled to detect QR refresh.
- */
-export function useWhatsAppQr(enabled: boolean) {
-  return useQuery<WhatsAppQrData>({
-    queryKey: ["channels", "whatsapp-qr"],
-    queryFn: async () => {
-      return await invoke<WhatsAppQrData>("get_whatsapp_qr")
-    },
-    enabled,
-    refetchInterval: 5_000,
-    retry: 1,
-  })
-}
-
-/**
- * Validate a Telegram bot token.
- * Returns validation result with success/error message.
- */
-export function useValidateTelegramToken() {
-  return useMutation({
-    mutationFn: async (token: string) => {
-      return await invoke<TokenValidationResult>("validate_telegram_token", { token })
-    },
-  })
-}
-
-/**
- * Validate a Discord bot token.
- * Returns validation result with success/error message.
- */
-export function useValidateDiscordToken() {
-  return useMutation({
-    mutationFn: async (token: string) => {
-      return await invoke<TokenValidationResult>("validate_discord_token", { token })
-    },
-  })
-}
-
-/**
- * Fetches all contacts from OpenClaw.
- * Polls every 60s for contact status updates.
- */
-export function useContacts() {
-  return useQuery<Contact[]>({
-    queryKey: ["channels", "contacts"],
-    queryFn: async () => {
-      return await invoke<Contact[]>("get_contacts")
-    },
-    refetchInterval: 60_000,
-    retry: 1,
-  })
-}
-
-/**
- * Update a contact's status (approve, deny, block, unblock).
- * Invalidates contacts query on success.
- */
-export function useUpdateContactStatus() {
-  const queryClient = useQueryClient()
+export function useUpdateChannel() {
+  const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({
-      contactId,
-      newStatus,
+      provider,
+      config,
+      baseHash,
     }: {
-      contactId: string
-      newStatus: string
+      provider: string;
+      config: Record<string, unknown>;
+      baseHash: string;
     }) => {
-      return await invoke<Contact>("update_contact_status", {
-        contactId,
-        newStatus,
-      })
+      const raw = JSON.stringify({ channels: { [provider]: config } });
+      return await invoke("gateway_ws_call", {
+        method: "config.patch",
+        params: { raw, baseHash },
+      });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["channels", "contacts"] })
+      queryClient.invalidateQueries({ queryKey: ["channels"] });
+      queryClient.invalidateQueries({ queryKey: ["gateway", "config.get"] });
     },
-  })
+  });
 }
 
 /**
- * Fetches recent message activity from OpenClaw.
- * Polls every 30s for new activity.
+ * Mutation to disconnect a channel by setting enabled: false.
  */
-export function useActivity() {
-  return useQuery<ActivityEntry[]>({
-    queryKey: ["channels", "activity"],
-    queryFn: async () => {
-      return await invoke<ActivityEntry[]>("get_activity")
+export function useDisconnectChannel() {
+  const updateChannel = useUpdateChannel();
+
+  return useMutation({
+    mutationFn: async ({ provider, baseHash }: { provider: string; baseHash: string }) => {
+      return updateChannel.mutateAsync({ provider, config: { enabled: false }, baseHash });
     },
-    refetchInterval: 30_000,
-    retry: 1,
-  })
+  });
 }

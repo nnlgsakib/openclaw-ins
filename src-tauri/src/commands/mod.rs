@@ -1,8 +1,14 @@
 pub mod channels;
 pub mod config;
+pub mod control_ui;
+pub mod desktop_config;
 pub mod docker;
+pub mod gateway;
+pub mod gateway_ws;
 pub mod install;
+pub mod models;
 pub mod monitoring;
+pub mod nodejs;
 pub mod platform;
 pub mod system_check;
 pub mod uninstall;

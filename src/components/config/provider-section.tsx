@@ -1,4 +1,4 @@
-import { useConfigStore } from "@/stores/use-config-store";
+import { useConfigStore, type ProviderConfig } from "@/stores/use-config-store";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 const PROVIDER_OPTIONS = [
@@ -17,9 +17,11 @@ const DEFAULT_MODELS: Record<string, string> = {
   azure: "gpt-4o",
 };
 
+const DEFAULT_PROVIDER: ProviderConfig = { provider: "", model: "" };
+
 export function ProviderSection() {
   const { config, setProvider } = useConfigStore();
-  const provider = config.provider || { provider: "", model: "" };
+  const provider: ProviderConfig = { ...DEFAULT_PROVIDER, ...(config.provider as Partial<ProviderConfig> | undefined) };
 
   const handleProviderChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newProvider = e.target.value;
