@@ -175,9 +175,10 @@ Last activity: 2026-03-28
 | 260328-pfs | Rewrite release.yml professionally | 2026-03-28 | - | [260328-pfs-rewrite-release-yml-professionally-linux](./quick/260328-pfs-rewrite-release-yml-professionally-linux/) |
 | 260328-v9j | Add open-source license (MIT) for the project | 2026-03-28 | - | [260328-v9j-add-open-source-license-mit-for-the-proj](./quick/260328-v9j-add-open-source-license-mit-for-the-proj/) |
 | 260329-0fy | Format code, run clippy fix, resolve warnings, push, tag | 2026-03-28 | 63ea31a | [260329-0fy-format-code-run-clippy-fix-resolve-warni](./quick/260329-0fy-format-code-run-clippy-fix-resolve-warni/) |
+| 260329-0mn | Fix CI compilation errors in uninstall.rs Linux-specific pgrep/pkill | 2026-03-28 | c97b040 | [260329-0mn-fix-ci-compilation-errors-in-uninstall-r](./quick/260329-0mn-fix-ci-compilation-errors-in-uninstall-r/) |
 
 ## Session Continuity
 
-**Last action:** 2026-03-28 - Formatted code, fixed clippy warnings, pushed v1.1.0-beta.2 (260329-0fy)
+**Last action:** 2026-03-28 - Fixed CI Linux compilation errors in uninstall.rs (260329-0mn)
 **Next action:** Continue with v2.0 phases or review CI/CD setup
 **Files to review:** `.planning/phases/14-github-workflows-ci-cd/PHASE-LOG.md`
