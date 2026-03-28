@@ -158,10 +158,11 @@ Last activity: 2026-03-27
 | 260327-bu3 | Fix Docker installation to use pre-built image and correct setup flow | 2026-03-27 | f838e0a | [260327-bu3-fix-docker-installation-read-openclaw-do](./quick/260327-bu3-fix-docker-installation-read-openclaw-do/) |
 | 260327-cpt | Fix git safe.directory warning on non-NTFS filesystems | 2026-03-27 | a716946 | [260327-cpt-fix-git-safe-directory-warning-on-non-nt](./quick/260327-cpt-fix-git-safe-directory-warning-on-non-nt/) |
 | 260328-hjx | Make README professional and accessible to all users | 2026-03-28 | f06c207 | [260328-hjx-make-the-readme-professional-as-the-most](./quick/260328-hjx-make-the-readme-professional-as-the-most/) |
-| 260328-hqt | Replace default Tauri icons with custom app icon | 2026-03-28 | - | [260328-hqt-replace-default-tauri-icons-with-custom-](./quick/260328-hqt-replace-default-tauri-icons-with-custom-/) |
+| 260328-hqt | Replace default Tauri icons with custom app icon | 2026-03-28 | 493b734 | [260328-hqt-replace-default-tauri-icons-with-custom-](./quick/260328-hqt-replace-default-tauri-icons-with-custom-/) |
+| 260328-hxf | Fix custom icon not showing in Tauri dev mode | 2026-03-28 | - | [260328-hxf-debug-and-fix-custom-icon-not-showing-in](./quick/260328-hxf-debug-and-fix-custom-icon-not-showing-in/) |
 
 ## Session Continuity
 
-**Last action:** 2026-03-28 - Completed quick task 260328-hqt: Replace default Tauri icons with custom app icon
+**Last action:** 2026-03-28 - Completed quick task 260328-hxf: Fix custom icon not showing in Tauri dev mode
 **Next action:** Run milestone lifecycle (audit → complete → cleanup)
 **Files to review:** `.planning/phases/10-access-control-activity/10-VERIFICATION.md`
