@@ -164,5 +164,5 @@ Last activity: 2026-03-27
 ## Session Continuity
 
 **Last action:** 2026-03-28 - Completed quick task 260328-hxf: Fix custom icon not showing in Tauri dev mode
-**Next action:** Run milestone lifecycle (audit → complete → cleanup)
+**Next action:** Execute Phase 14 (CI/CD & release workflows) or continue with v2.0 phases
 **Files to review:** `.planning/phases/10-access-control-activity/10-VERIFICATION.md`
