@@ -165,10 +165,33 @@ Plans:
 
 ---
 
+### Phase 14: GitHub Workflows & CI/CD
+
+**Goal:** Add professional GitHub Actions workflows for format checking, CI testing, cross-platform release builds with checksums, and dependency management. Ship installers for Linux (x64/arm64), Windows (x64), and macOS (Intel/Apple Silicon) via tagged releases.
+
+**Requirements:** CI-LINT-01, CI-LINT-02, CI-BUILD-01, CI-BUILD-02, REL-01, REL-02, REL-03, REL-04, REL-05, DEP-01
+
+**Success Criteria:**
+1. Every push/PR triggers Rust (fmt, clippy) and TypeScript (tsc, eslint) lint checks
+2. Every push/PR triggers build verification on Linux and Windows
+3. Pushing a `v*` tag triggers full release builds on 5 platform/arch combinations
+4. Release artifacts include AppImage, .deb, .msi, .dmg with SHA256 checksums
+5. All artifacts auto-publish to GitHub Release with changelog
+6. Dependabot manages weekly Rust and npm dependency updates
+
+**Plans:** 2 plans in 2 waves
+
+Plans:
+- [ ] 14-01-PLAN.md — CI workflows: lint checks (Rust + TypeScript) and build-test matrix
+- [ ] 14-02-PLAN.md — Release workflow: cross-platform builds, checksums, GitHub Release, dependabot
+
+---
+
 ## Progress Table
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
+| 14. GitHub Workflows & CI/CD | — | 0/2 | 🔲 | — |
 | 13. Documentation & README | — | 0/1 | 🔲 | — |
 | 12. Gateway Integration & Setup | v2.0 | 0/5 | 🔲 | — |
 | 11. OpenClaw Theme Redesign | v1.2 | 0/3 | 🔲 | — |
@@ -224,6 +247,23 @@ Plans:
 | GW-17 | Phase 12 | 🔲 |
 
 **Coverage:** 0/17 v2.0 requirements planned ✓
+
+## CI/CD Traceability
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| CI-LINT-01 | Phase 14 | 🔲 |
+| CI-LINT-02 | Phase 14 | 🔲 |
+| CI-BUILD-01 | Phase 14 | 🔲 |
+| CI-BUILD-02 | Phase 14 | 🔲 |
+| REL-01 | Phase 14 | 🔲 |
+| REL-02 | Phase 14 | 🔲 |
+| REL-03 | Phase 14 | 🔲 |
+| REL-04 | Phase 14 | 🔲 |
+| REL-05 | Phase 14 | 🔲 |
+| DEP-01 | Phase 14 | 🔲 |
+
+**Coverage:** 0/10 CI/CD requirements planned ✓
 
 ---
 
