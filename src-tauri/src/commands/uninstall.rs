@@ -257,11 +257,13 @@ async fn stop_native_process() -> Result<(), String> {
     // Try platform-specific process detection
     #[cfg(target_os = "linux")]
     {
-        let mut cmd = silent_cmd("pgrep").args(["-f", "openclaw"]);
+        let mut cmd = silent_cmd("pgrep");
+        cmd.args(["-f", "openclaw"]);
         if let Ok(out) = run_with_timeout(&mut cmd, QUICK_TIMEOUT).await {
             if out.status.success() {
                 // Found running processes — try graceful stop first
-                let mut cmd = silent_cmd("pkill").args(["-f", "openclaw"]);
+                let mut cmd = silent_cmd("pkill");
+                cmd.args(["-f", "openclaw"]);
                 let _ = run_with_timeout(&mut cmd, QUICK_TIMEOUT).await;
             }
         }
