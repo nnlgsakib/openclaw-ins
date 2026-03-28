@@ -21,9 +21,6 @@ jobs:
           - platform: ubuntu-22.04
             rust_target: x86_64-unknown-linux-gnu
             label: linux-x86_64
-          - platform: ubuntu-24.04-arm
-            rust_target: aarch64-unknown-linux-gnu
-            label: linux-aarch64
           - platform: windows-latest
             rust_target: x86_64-pc-windows-msvc
             label: windows-x86_64
