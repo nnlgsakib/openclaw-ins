@@ -16,11 +16,22 @@ jobs:
         include:
           - platform: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
+            label: linux-x86_64
           - platform: windows-latest
             target: x86_64-pc-windows-msvc
+            label: windows-x86_64
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
 
       - name: Install dependencies (Ubuntu)
         if: matrix.platform == 'ubuntu-22.04'
@@ -34,6 +45,16 @@ jobs:
             librsvg2-dev \
             patchelf
 
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: pnpm install --frozen-lockfile
+
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -42,7 +63,87 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'ClawStation ${{ github.ref_name }}'
-          releaseBody: 'See the assets to download this version and install.'
+          releaseBody: '## ClawStation ${{ github.ref_name }}'
           releaseDraft: false
           prerelease: ${{ contains(github.ref_name, '-beta') || contains(github.ref_name, '-rc') }}
           args: --target ${{ matrix.target }}
+
+  update-release:
+    name: Finalize Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate release notes
+        id: notes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ github.ref_name }}"
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+
+          # Get contributors
+          if [ -n "$PREV_TAG" ]; then
+            CONTRIBUTORS=$(git log "${PREV_TAG}..HEAD" --format='%an' | sort -u | sed 's/^/- /')
+            COMMIT_COUNT=$(git rev-list --count "${PREV_TAG}..HEAD")
+            CHANGELOG=$(git log "${PREV_TAG}..HEAD" --pretty=format:"- %s (%h)" --no-merges)
+          else
+            CONTRIBUTORS=$(git log --format='%an' | sort -u | sed 's/^/- /')
+            COMMIT_COUNT=$(git rev-list --count HEAD)
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" --no-merges -20)
+          fi
+
+          {
+            echo "body<<EOF"
+            echo "## ClawStation ${TAG}"
+            echo ""
+            echo "### Installation"
+            echo ""
+            echo "Download the appropriate installer for your platform from the assets below."
+            echo ""
+            echo "| Platform | Installer |"
+            echo "|----------|-----------|"
+            echo "| Linux (x86_64) | \`.AppImage\` or \`.deb\` |"
+            echo "| Windows (x86_64) | \`.msi\` or \`.exe\` |"
+            echo ""
+            echo "### Changelog (${COMMIT_COUNT} commits)"
+            echo ""
+            echo "${CHANGELOG}"
+            echo ""
+            echo "<details>"
+            echo "<summary>Contributors</summary>"
+            echo ""
+            echo "${CONTRIBUTORS}"
+            echo ""
+            echo "</details>"
+            echo ""
+            echo "<details>"
+            echo "<summary>Installation Guide</summary>"
+            echo ""
+            echo "**Linux (AppImage):**"
+            echo '```bash'
+            echo "chmod +x ClawStation*.AppImage"
+            echo "./ClawStation*.AppImage"
+            echo '```'
+            echo ""
+            echo "**Linux (DEB):**"
+            echo '```bash'
+            echo "sudo dpkg -i ClawStation*.deb"
+            echo '```'
+            echo ""
+            echo "**Windows:**"
+            echo "Run the \`.msi\` installer or the \`.exe\` setup wizard."
+            echo ""
+            echo "</details>"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Update release body
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          body: ${{ steps.notes.outputs.body }}
+          generate_release_notes: true
