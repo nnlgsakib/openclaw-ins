@@ -41,7 +41,7 @@ struct OllamaTagsResponse {
 #[derive(Debug, Deserialize)]
 struct OllamaModel {
     name: String,
-    model: Option<String>,
+    _model: Option<String>,
 }
 
 /// Fetch available models from a provider's API.

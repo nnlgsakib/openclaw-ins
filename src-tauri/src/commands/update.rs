@@ -306,7 +306,7 @@ async fn get_docker_version() -> Option<String> {
         .ok()?;
     let image = container.config?.image?;
     // Image format: "ghcr.io/openclaw/openclaw:latest" or similar
-    let tag = image.split(':').last().unwrap_or("latest");
+    let tag = image.split(':').next_back().unwrap_or("latest");
     Some(tag.to_string())
 }
 

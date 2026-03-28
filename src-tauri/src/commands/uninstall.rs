@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::error::AppError;
 use crate::install::progress::emit_progress;
@@ -171,7 +171,7 @@ pub async fn uninstall_openclaw(
 }
 
 /// Run `docker compose down` to stop and remove containers.
-async fn stop_and_remove_containers(compose_path: &PathBuf) -> Result<Vec<String>, String> {
+async fn stop_and_remove_containers(compose_path: &Path) -> Result<Vec<String>, String> {
     let output = tokio::process::Command::new("docker")
         .args([
             "compose",
@@ -226,7 +226,7 @@ async fn remove_openclaw_images() -> Result<(), String> {
 }
 
 /// Remove Docker volumes via compose down --volumes.
-async fn remove_volumes(compose_path: &PathBuf) -> Result<(), String> {
+async fn remove_volumes(compose_path: &Path) -> Result<(), String> {
     let output = tokio::process::Command::new("docker")
         .args([
             "compose",

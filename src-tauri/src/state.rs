@@ -1,5 +1,4 @@
 use futures::stream::SplitSink;
-use futures::StreamExt;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex as StdMutex};
 use tokio::net::TcpStream;
@@ -8,25 +7,15 @@ use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::MaybeTlsStream;
 
 type WsSink = SplitSink<tokio_tungstenite::WebSocketStream<MaybeTlsStream<TcpStream>>, Message>;
+type PendingCalls = Arc<StdMutex<HashMap<String, oneshot::Sender<serde_json::Value>>>>;
 
 /// Application state container registered with Tauri.
+#[derive(Default)]
 pub struct AppState {
     pub platform: String,
     pub gateway_pid: Option<u32>,
     pub gateway_ws_write: Option<Arc<AsyncMutex<WsSink>>>,
-    pub gateway_ws_pending:
-        Option<Arc<StdMutex<HashMap<String, oneshot::Sender<serde_json::Value>>>>>,
-}
-
-impl Default for AppState {
-    fn default() -> Self {
-        Self {
-            platform: String::new(),
-            gateway_pid: None,
-            gateway_ws_write: None,
-            gateway_ws_pending: None,
-        }
-    }
+    pub gateway_ws_pending: Option<PendingCalls>,
 }
 
 impl std::fmt::Debug for AppState {

@@ -58,11 +58,7 @@ pub async fn run_system_check() -> Result<SystemCheckResult, AppError> {
 
 /// Check if Node.js is available and get its version.
 async fn check_nodejs() -> (bool, Option<String>) {
-    let node_cmd = if cfg!(target_os = "windows") {
-        "node"
-    } else {
-        "node"
-    };
+    let node_cmd = "node";
 
     match tokio::process::Command::new(node_cmd)
         .arg("--version")
@@ -98,8 +94,5 @@ fn get_available_ram_gb() -> u64 {
 
 /// Check if a TCP port is free by attempting to bind to it.
 async fn is_port_free(port: u16) -> bool {
-    match tokio::net::TcpListener::bind(("127.0.0.1", port)).await {
-        Ok(_) => true,
-        Err(_) => false,
-    }
+    tokio::net::TcpListener::bind(("127.0.0.1", port)).await.is_ok()
 }

@@ -43,9 +43,9 @@ pub struct DockerLogEvent {
 /// 2. Create ~/.openclaw config, workspace, and repo directories
 /// 3. Clone (or pull) the OpenClaw repository
 /// 4. Write .env with all required vars and create subdirectories
-/// 5a. Pull pre-built image from ghcr.io
-/// 5b. Configure gateway via docker compose run config commands
-/// 5c. Start gateway via docker compose up -d
+///    5a. Pull pre-built image from ghcr.io
+///    5b. Configure gateway via docker compose run config commands
+///    5c. Start gateway via docker compose up -d
 /// 6. Verify gateway health
 pub async fn docker_install(
     app_handle: &tauri::AppHandle,
@@ -440,6 +440,7 @@ fn emit_log(app_handle: &tauri::AppHandle, message: &str) {
 }
 
 /// Emit each line of command output as a separate log event.
+#[allow(dead_code)]
 fn emit_log_lines(app_handle: &tauri::AppHandle, output: &[u8]) {
     let text = String::from_utf8_lossy(output);
     for line in text.lines() {

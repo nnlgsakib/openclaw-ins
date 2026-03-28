@@ -178,7 +178,7 @@ pub async fn install_openclaw_script(app: tauri::AppHandle) -> Result<String, St
             format!("Running: {pkg_manager} {}", install_args.join(" ")),
         );
 
-        let mut child = if cfg!(target_os = "windows") {
+        let child = if cfg!(target_os = "windows") {
             let mut args = vec!["/c", pkg_manager.as_str()];
             args.extend(&install_args);
             tokio::process::Command::new("cmd")

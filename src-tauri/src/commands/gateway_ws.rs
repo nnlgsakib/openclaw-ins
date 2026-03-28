@@ -10,6 +10,7 @@ use tokio_tungstenite::{connect_async, tungstenite::Message, MaybeTlsStream, Web
 
 use crate::state::AppState;
 
+#[allow(dead_code)]
 type WsSink = futures::stream::SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>;
 
 /// Response from a Gateway WebSocket call.

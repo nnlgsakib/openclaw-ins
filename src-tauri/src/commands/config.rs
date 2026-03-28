@@ -188,7 +188,7 @@ fn strip_json5_comments(input: &str) -> String {
 
         // Line comment
         if c == '/' && chars.peek() == Some(&'/') {
-            while let Some(ch) = chars.next() {
+            for ch in chars.by_ref() {
                 if ch == '\n' {
                     result.push('\n');
                     break;
@@ -218,8 +218,7 @@ fn strip_json5_comments(input: &str) -> String {
     }
 
     // Remove trailing commas (simple: ,\s*} or ,\s*])
-    let re = regex_trailing_comma(&result);
-    re
+    regex_trailing_comma(&result)
 }
 
 fn regex_trailing_comma(input: &str) -> String {
