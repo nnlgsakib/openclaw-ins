@@ -1,10 +1,10 @@
+use crate::commands::silent::silent_cmd;
 use crate::docker::check::check_docker_health_internal;
 use crate::error::AppError;
 use crate::install::progress::emit_progress;
 use crate::install::verify::verify_gateway_health;
 use crate::install::InstallResult;
 use serde::{Deserialize, Serialize};
-use std::process::Stdio;
 use tokio::io::{AsyncBufReadExt, BufReader};
 
 const OPENCLAW_REPO: &str = "https://github.com/openclaw/openclaw.git";
@@ -117,27 +117,22 @@ pub async fn docker_install(
         emit_log(app_handle, "Repository exists, pulling latest changes...");
 
         // Mark repo directory as safe (needed for non-NTFS drives on Windows)
-        tokio::process::Command::new("git")
-            .args([
-                "config",
-                "--global",
-                "--add",
-                "safe.directory",
-                repo_dir.to_str().unwrap(),
-            ])
-            .output()
-            .await
-            .ok();
+        let mut cmd = silent_cmd("git");
+        cmd.args([
+            "config",
+            "--global",
+            "--add",
+            "safe.directory",
+            repo_dir.to_str().unwrap(),
+        ]);
+        cmd.output().await.ok();
 
-        let mut child = tokio::process::Command::new("git")
-            .args(["-C", repo_dir.to_str().unwrap(), "pull", "--ff-only"])
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .map_err(|e| AppError::InstallationFailed {
-                reason: format!("Failed to run git pull: {e}"),
-                suggestion: "Ensure git is installed and on your PATH".into(),
-            })?;
+        let mut cmd = silent_cmd("git");
+        cmd.args(["-C", repo_dir.to_str().unwrap(), "pull", "--ff-only"]);
+        let mut child = cmd.spawn().map_err(|e| AppError::InstallationFailed {
+            reason: format!("Failed to run git pull: {e}"),
+            suggestion: "Ensure git is installed and on your PATH".into(),
+        })?;
 
         let stderr = child.stderr.take().unwrap();
         let mut reader = BufReader::new(stderr).lines();
@@ -169,22 +164,19 @@ pub async fn docker_install(
         );
         emit_log(app_handle, &format!("Cloning from {OPENCLAW_REPO}..."));
 
-        let mut child = tokio::process::Command::new("git")
-            .args([
-                "clone",
-                "--depth",
-                "1",
-                "--progress",
-                OPENCLAW_REPO,
-                repo_dir.to_str().unwrap(),
-            ])
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .map_err(|e| AppError::InstallationFailed {
-                reason: format!("Failed to run git clone: {e}"),
-                suggestion: "Ensure git is installed and on your PATH".into(),
-            })?;
+        let mut cmd = silent_cmd("git");
+        cmd.args([
+            "clone",
+            "--depth",
+            "1",
+            "--progress",
+            OPENCLAW_REPO,
+            repo_dir.to_str().unwrap(),
+        ]);
+        let mut child = cmd.spawn().map_err(|e| AppError::InstallationFailed {
+            reason: format!("Failed to run git clone: {e}"),
+            suggestion: "Ensure git is installed and on your PATH".into(),
+        })?;
 
         // git clone outputs progress to stderr — stream it line by line
         let stderr = child.stderr.take().unwrap();
@@ -214,17 +206,15 @@ pub async fn docker_install(
         emit_log(app_handle, "Repository cloned successfully.");
 
         // Mark repo directory as safe (needed for non-NTFS drives on Windows)
-        tokio::process::Command::new("git")
-            .args([
-                "config",
-                "--global",
-                "--add",
-                "safe.directory",
-                repo_dir.to_str().unwrap(),
-            ])
-            .output()
-            .await
-            .ok();
+        let mut cmd = silent_cmd("git");
+        cmd.args([
+            "config",
+            "--global",
+            "--add",
+            "safe.directory",
+            repo_dir.to_str().unwrap(),
+        ]);
+        cmd.output().await.ok();
     }
 
     emit_progress(app_handle, "cloning_repo", 30, "Repository ready.");
@@ -275,15 +265,12 @@ pub async fn docker_install(
     );
     emit_log(app_handle, &format!("Pulling {OPENCLAW_IMAGE}..."));
 
-    let mut child = tokio::process::Command::new("docker")
-        .args(["pull", OPENCLAW_IMAGE])
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|e| AppError::InstallationFailed {
-            reason: format!("Failed to run docker pull: {e}"),
-            suggestion: "Ensure Docker is installed and running".into(),
-        })?;
+    let mut cmd = silent_cmd("docker");
+    cmd.args(["pull", OPENCLAW_IMAGE]);
+    let mut child = cmd.spawn().map_err(|e| AppError::InstallationFailed {
+        reason: format!("Failed to run docker pull: {e}"),
+        suggestion: "Ensure Docker is installed and running".into(),
+    })?;
 
     let stderr = child.stderr.take().unwrap();
     let mut reader = BufReader::new(stderr).lines();
@@ -332,20 +319,21 @@ pub async fn docker_install(
     ];
 
     for (args, label) in config_commands {
-        let output = tokio::process::Command::new("docker")
-            .args([
-                "compose",
-                "run",
-                "--rm",
-                "--no-deps",
-                "-T",
-                "--entrypoint",
-                "node",
-                "openclaw-gateway",
-                "dist/index.js",
-            ])
-            .args(*args)
-            .current_dir(&repo_dir)
+        let mut cmd = silent_cmd("docker");
+        cmd.args([
+            "compose",
+            "run",
+            "--rm",
+            "--no-deps",
+            "-T",
+            "--entrypoint",
+            "node",
+            "openclaw-gateway",
+            "dist/index.js",
+        ]);
+        cmd.args(*args);
+        cmd.current_dir(&repo_dir);
+        let output = cmd
             .output()
             .await
             .map_err(|e| AppError::InstallationFailed {
@@ -374,9 +362,10 @@ pub async fn docker_install(
     );
     emit_log(app_handle, "Starting gateway via docker compose...");
 
-    let output = tokio::process::Command::new("docker")
-        .args(["compose", "up", "-d", "openclaw-gateway"])
-        .current_dir(&repo_dir)
+    let mut cmd = silent_cmd("docker");
+    cmd.args(["compose", "up", "-d", "openclaw-gateway"]);
+    cmd.current_dir(&repo_dir);
+    let output = cmd
         .output()
         .await
         .map_err(|e| AppError::InstallationFailed {

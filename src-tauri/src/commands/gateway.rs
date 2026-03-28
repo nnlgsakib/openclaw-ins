@@ -3,6 +3,7 @@ use std::sync::Mutex;
 use tauri::Emitter;
 use tokio::io::AsyncBufReadExt;
 
+use super::silent::{run_with_timeout, silent_cmd, QUICK_TIMEOUT};
 use crate::state::AppState;
 
 /// Gateway status information.
@@ -99,7 +100,7 @@ pub async fn start_gateway(
         let mut last_err = String::new();
         let mut spawned = None;
         for args in &attempts {
-            match tokio::process::Command::new("cmd")
+            match silent_cmd("cmd")
                 .args(args)
                 .env("OPENCLAW_WORKSPACE", &workspace)
                 .stdout(std::process::Stdio::piped())
@@ -121,7 +122,7 @@ pub async fn start_gateway(
             )
         })?
     } else {
-        tokio::process::Command::new("openclaw")
+        silent_cmd("openclaw")
             .args(["gateway", "--verbose", "--port", &port_str])
             .env("OPENCLAW_WORKSPACE", &workspace)
             .stdout(std::process::Stdio::piped())
@@ -201,15 +202,13 @@ pub async fn stop_gateway(
 
     // Try `openclaw gateway stop` first (works if openclaw is in PATH)
     let openclaw_stop = if cfg!(target_os = "windows") {
-        tokio::process::Command::new("cmd")
-            .args(["/c", "openclaw", "gateway", "stop"])
-            .output()
-            .await
+        let mut cmd = silent_cmd("cmd");
+        cmd.args(["/c", "openclaw", "gateway", "stop"]);
+        run_with_timeout(&mut cmd, QUICK_TIMEOUT).await
     } else {
-        tokio::process::Command::new("openclaw")
-            .args(["gateway", "stop"])
-            .output()
-            .await
+        let mut cmd = silent_cmd("openclaw");
+        cmd.args(["gateway", "stop"]);
+        run_with_timeout(&mut cmd, QUICK_TIMEOUT).await
     };
 
     match openclaw_stop {
@@ -259,15 +258,13 @@ pub async fn restart_gateway(
 
     // Try openclaw gateway stop
     if cfg!(target_os = "windows") {
-        let _ = tokio::process::Command::new("cmd")
-            .args(["/c", "openclaw", "gateway", "stop"])
-            .output()
-            .await;
+        let mut cmd = silent_cmd("cmd");
+        cmd.args(["/c", "openclaw", "gateway", "stop"]);
+        let _ = run_with_timeout(&mut cmd, QUICK_TIMEOUT).await;
     } else {
-        let _ = tokio::process::Command::new("openclaw")
-            .args(["gateway", "stop"])
-            .output()
-            .await;
+        let mut cmd = silent_cmd("openclaw");
+        cmd.args(["gateway", "stop"]);
+        let _ = run_with_timeout(&mut cmd, QUICK_TIMEOUT).await;
     }
 
     // Also kill anything on the port
@@ -316,11 +313,11 @@ pub async fn get_gateway_status(
 async fn kill_gateway_on_port_internal() -> Result<(), String> {
     if cfg!(target_os = "windows") {
         // Find PID using netstat
-        let output = tokio::process::Command::new("cmd")
-            .args(["/c", "netstat", "-ano"])
-            .output()
+        let mut cmd = silent_cmd("cmd");
+        cmd.args(["/c", "netstat", "-ano"]);
+        let output = run_with_timeout(&mut cmd, QUICK_TIMEOUT)
             .await
-            .map_err(|e| format!("{e}"))?;
+            .map_err(|e| e.to_string())?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         for line in stdout.lines() {
@@ -328,28 +325,26 @@ async fn kill_gateway_on_port_internal() -> Result<(), String> {
                 let parts: Vec<&str> = line.split_whitespace().collect();
                 if let Some(pid_str) = parts.last() {
                     if let Ok(pid) = pid_str.trim().parse::<u32>() {
-                        let _ = tokio::process::Command::new("taskkill")
-                            .args(["/PID", &pid.to_string(), "/F", "/T"])
-                            .output()
-                            .await;
+                        let mut cmd = silent_cmd("taskkill");
+                        cmd.args(["/PID", &pid.to_string(), "/F", "/T"]);
+                        let _ = run_with_timeout(&mut cmd, QUICK_TIMEOUT).await;
                     }
                 }
             }
         }
     } else {
-        let output = tokio::process::Command::new("lsof")
-            .args(["-ti", ":18789"])
-            .output()
+        let mut cmd = silent_cmd("lsof");
+        cmd.args(["-ti", ":18789"]);
+        let output = run_with_timeout(&mut cmd, QUICK_TIMEOUT)
             .await
-            .map_err(|e| format!("{e}"))?;
+            .map_err(|e| e.to_string())?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         for pid_str in stdout.lines() {
             if let Ok(pid) = pid_str.trim().parse::<u32>() {
-                let _ = tokio::process::Command::new("kill")
-                    .args(["-9", &pid.to_string()])
-                    .output()
-                    .await;
+                let mut cmd = silent_cmd("kill");
+                cmd.args(["-9", &pid.to_string()]);
+                let _ = run_with_timeout(&mut cmd, QUICK_TIMEOUT).await;
             }
         }
     }

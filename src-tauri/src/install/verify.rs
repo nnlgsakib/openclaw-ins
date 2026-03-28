@@ -1,3 +1,4 @@
+use crate::commands::silent::{run_with_timeout, silent_cmd, QUICK_TIMEOUT};
 use crate::error::AppError;
 
 /// Poll the gateway /healthz and /readyz endpoints with exponential backoff.
@@ -43,9 +44,9 @@ pub async fn verify_gateway_health(timeout_secs: u64) -> Result<(), AppError> {
 /// Returns `Ok(())` if the doctor reports no issues, or `Err` with
 /// the doctor's output as the failure reason.
 pub async fn verify_native_install() -> Result<(), AppError> {
-    let output = tokio::process::Command::new("openclaw")
-        .args(["doctor", "--yes"])
-        .output()
+    let mut cmd = silent_cmd("openclaw");
+    cmd.args(["doctor", "--yes"]);
+    let output = run_with_timeout(&mut cmd, QUICK_TIMEOUT)
         .await
         .map_err(|e| AppError::VerificationFailed {
             reason: format!("Failed to run openclaw doctor: {e}"),

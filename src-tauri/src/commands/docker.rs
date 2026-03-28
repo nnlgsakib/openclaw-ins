@@ -1,6 +1,7 @@
 use bollard::Docker;
 use serde::{Deserialize, Serialize};
 
+use super::silent::{run_with_timeout, silent_cmd, QUICK_TIMEOUT};
 use crate::error::AppError;
 
 /// Docker installation and daemon status.
@@ -201,9 +202,10 @@ async fn check_docker_windows() -> Result<DockerStatus, AppError> {
     }
 
     // HTTP failed — check if docker.exe exists in PATH
-    let docker_in_path = std::process::Command::new("where")
-        .arg("docker")
-        .output()
+    let mut cmd = silent_cmd("where");
+    cmd.arg("docker");
+    let docker_in_path = run_with_timeout(&mut cmd, QUICK_TIMEOUT)
+        .await
         .map(|o| o.status.success())
         .unwrap_or(false);
 
@@ -220,9 +222,10 @@ async fn check_docker_windows() -> Result<DockerStatus, AppError> {
     }
 
     // Docker binary exists but daemon not accessible — check WSL2 backend
-    let wsl_running = std::process::Command::new("wsl")
-        .args(["-l", "-v"])
-        .output()
+    let mut cmd = silent_cmd("wsl");
+    cmd.args(["-l", "-v"]);
+    let wsl_running = run_with_timeout(&mut cmd, QUICK_TIMEOUT)
+        .await
         .map(|o| {
             let output = String::from_utf8_lossy(&o.stdout);
             output

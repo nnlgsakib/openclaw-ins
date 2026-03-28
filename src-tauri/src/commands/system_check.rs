@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use sysinfo::System;
 
+use super::silent::{run_with_timeout, silent_cmd, QUICK_TIMEOUT};
 use crate::docker::check::{check_docker_health_internal, DockerStatus};
 use crate::error::AppError;
 
@@ -58,13 +59,9 @@ pub async fn run_system_check() -> Result<SystemCheckResult, AppError> {
 
 /// Check if Node.js is available and get its version.
 async fn check_nodejs() -> (bool, Option<String>) {
-    let node_cmd = "node";
-
-    match tokio::process::Command::new(node_cmd)
-        .arg("--version")
-        .output()
-        .await
-    {
+    let mut cmd = silent_cmd("node");
+    cmd.arg("--version");
+    match run_with_timeout(&mut cmd, QUICK_TIMEOUT).await {
         Ok(output) if output.status.success() => {
             let version = String::from_utf8_lossy(&output.stdout).trim().to_string();
             (true, Some(version))

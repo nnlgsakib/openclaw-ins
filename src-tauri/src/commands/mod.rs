@@ -10,6 +10,7 @@ pub mod models;
 pub mod monitoring;
 pub mod nodejs;
 pub mod platform;
+pub mod silent;
 pub mod system_check;
 pub mod uninstall;
 pub mod update;

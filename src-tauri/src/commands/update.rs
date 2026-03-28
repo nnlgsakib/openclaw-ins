@@ -2,6 +2,7 @@ use bollard::Docker;
 use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
 
+use super::silent::{run_with_timeout, silent_cmd, INSTALL_TIMEOUT, QUICK_TIMEOUT};
 use crate::error::AppError;
 use crate::install::progress::emit_progress;
 use crate::install::verify::verify_gateway_health;
@@ -181,16 +182,16 @@ async fn update_docker(app_handle: &AppHandle) -> Result<UpdateResult, AppError>
     })?;
     let compose_path = home.join(".openclaw").join("docker-compose.yml");
 
-    let output = tokio::process::Command::new("docker")
-        .args([
-            "compose",
-            "-f",
-            compose_path.to_str().unwrap(),
-            "up",
-            "-d",
-            "openclaw-gateway",
-        ])
-        .output()
+    let mut cmd = silent_cmd("docker");
+    cmd.args([
+        "compose",
+        "-f",
+        compose_path.to_str().unwrap(),
+        "up",
+        "-d",
+        "openclaw-gateway",
+    ]);
+    let output = run_with_timeout(&mut cmd, INSTALL_TIMEOUT)
         .await
         .map_err(|e| AppError::InstallationFailed {
             reason: format!("Failed to run docker compose: {e}"),
@@ -235,9 +236,9 @@ async fn update_native(app_handle: &AppHandle) -> Result<UpdateResult, AppError>
     // Run npm update for the openclaw package
     emit_progress(app_handle, "installing", 70, "Installing update...");
 
-    let output = tokio::process::Command::new("npm")
-        .args(["install", "-g", &format!("openclaw@{latest_tag}")])
-        .output()
+    let mut cmd = silent_cmd("npm");
+    cmd.args(["install", "-g", &format!("openclaw@{latest_tag}")]);
+    let output = run_with_timeout(&mut cmd, INSTALL_TIMEOUT)
         .await
         .map_err(|e| AppError::InstallationFailed {
             reason: format!("Failed to update openclaw: {e}"),
@@ -283,10 +284,9 @@ async fn detect_install_method() -> (String, String) {
     }
 
     // Check for native install
-    let output = tokio::process::Command::new("openclaw")
-        .arg("--version")
-        .output()
-        .await;
+    let mut cmd = silent_cmd("openclaw");
+    cmd.arg("--version");
+    let output = run_with_timeout(&mut cmd, QUICK_TIMEOUT).await;
     if let Ok(output) = output {
         if output.status.success() {
             let version = String::from_utf8_lossy(&output.stdout).trim().to_string();

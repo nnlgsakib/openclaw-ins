@@ -1,3 +1,4 @@
+use crate::commands::silent::{run_with_timeout, silent_cmd, INSTALL_TIMEOUT, QUICK_TIMEOUT};
 use crate::error::AppError;
 use crate::install::progress::emit_progress;
 use crate::install::InstallResult;
@@ -33,9 +34,9 @@ pub async fn native_install(app_handle: &tauri::AppHandle) -> Result<InstallResu
         30,
         "Installing OpenClaw via npm...",
     );
-    let output = tokio::process::Command::new("npm")
-        .args(["install", "-g", "openclaw@latest"])
-        .output()
+    let mut cmd = silent_cmd("npm");
+    cmd.args(["install", "-g", "openclaw@latest"]);
+    let output = run_with_timeout(&mut cmd, INSTALL_TIMEOUT)
         .await
         .map_err(|e| AppError::InstallationFailed {
             reason: format!("Failed to run npm install: {e}"),
@@ -65,9 +66,9 @@ pub async fn native_install(app_handle: &tauri::AppHandle) -> Result<InstallResu
 
     // Step 3: Run onboard --install-daemon
     emit_progress(app_handle, "configuring", 60, "Running OpenClaw setup...");
-    let output = tokio::process::Command::new("openclaw")
-        .args(["onboard", "--install-daemon"])
-        .output()
+    let mut cmd = silent_cmd("openclaw");
+    cmd.args(["onboard", "--install-daemon"]);
+    let output = run_with_timeout(&mut cmd, INSTALL_TIMEOUT)
         .await
         .map_err(|e| AppError::InstallationFailed {
             reason: format!("Failed to run openclaw onboard: {e}"),
@@ -103,9 +104,9 @@ pub async fn native_install(app_handle: &tauri::AppHandle) -> Result<InstallResu
 
 /// Get the installed Node.js version string.
 async fn get_node_version() -> Result<String, AppError> {
-    let output = tokio::process::Command::new("node")
-        .args(["--version"])
-        .output()
+    let mut cmd = silent_cmd("node");
+    cmd.arg("--version");
+    let output = run_with_timeout(&mut cmd, QUICK_TIMEOUT)
         .await
         .map_err(|e| AppError::InstallationFailed {
             reason: format!("Node.js not found: {e}"),
@@ -125,9 +126,9 @@ async fn get_node_version() -> Result<String, AppError> {
 
 /// Get the installed OpenClaw version string.
 async fn get_openclaw_version() -> Result<String, AppError> {
-    let output = tokio::process::Command::new("openclaw")
-        .args(["--version"])
-        .output()
+    let mut cmd = silent_cmd("openclaw");
+    cmd.arg("--version");
+    let output = run_with_timeout(&mut cmd, QUICK_TIMEOUT)
         .await
         .map_err(|e| AppError::InstallationFailed {
             reason: format!("openclaw binary not found: {e}"),

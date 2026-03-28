@@ -1,6 +1,8 @@
 use bollard::Docker;
 use serde::{Deserialize, Serialize};
 
+use crate::commands::silent::{run_with_timeout, silent_cmd, QUICK_TIMEOUT};
+
 /// Docker installation and daemon status.
 ///
 /// Shared between the Docker commands and the system check command.
@@ -88,9 +90,10 @@ async fn check_docker_windows() -> Result<DockerStatus, Box<dyn std::error::Erro
     }
 
     // HTTP failed — check if docker.exe exists in PATH
-    let docker_in_path = std::process::Command::new("where")
-        .arg("docker")
-        .output()
+    let mut cmd = silent_cmd("where");
+    cmd.arg("docker");
+    let docker_in_path = run_with_timeout(&mut cmd, QUICK_TIMEOUT)
+        .await
         .map(|o| o.status.success())
         .unwrap_or(false);
 

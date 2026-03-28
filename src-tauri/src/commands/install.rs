@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+use super::silent::silent_cmd;
 use crate::error::AppError;
 use crate::install::docker_install::docker_install;
 use crate::install::native_install::native_install;
@@ -76,11 +77,10 @@ pub async fn cancel_install(install_dir: Option<String>) -> Result<(), AppError>
 
     // Try to stop any running compose services
     if repo_dir.exists() && repo_dir.join("docker-compose.yml").exists() {
-        let _ = tokio::process::Command::new("docker")
-            .args(["compose", "down"])
-            .current_dir(&repo_dir)
-            .output()
-            .await;
+        let mut cmd = silent_cmd("docker");
+        cmd.args(["compose", "down"]);
+        cmd.current_dir(&repo_dir);
+        let _ = cmd.output().await;
     }
 
     Ok(())

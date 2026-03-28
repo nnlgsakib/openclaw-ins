@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
+use super::silent::{run_with_timeout, silent_cmd, QUICK_TIMEOUT};
 use crate::error::AppError;
 use crate::install::progress::emit_progress;
 
@@ -172,15 +173,15 @@ pub async fn uninstall_openclaw(
 
 /// Run `docker compose down` to stop and remove containers.
 async fn stop_and_remove_containers(compose_path: &Path) -> Result<Vec<String>, String> {
-    let output = tokio::process::Command::new("docker")
-        .args([
-            "compose",
-            "-f",
-            compose_path.to_str().unwrap(),
-            "down",
-            "--remove-orphans",
-        ])
-        .output()
+    let mut cmd = silent_cmd("docker");
+    cmd.args([
+        "compose",
+        "-f",
+        compose_path.to_str().unwrap(),
+        "down",
+        "--remove-orphans",
+    ]);
+    let output = run_with_timeout(&mut cmd, QUICK_TIMEOUT)
         .await
         .map_err(|e| format!("Failed to run docker compose down: {e}"))?;
 
@@ -227,15 +228,15 @@ async fn remove_openclaw_images() -> Result<(), String> {
 
 /// Remove Docker volumes via compose down --volumes.
 async fn remove_volumes(compose_path: &Path) -> Result<(), String> {
-    let output = tokio::process::Command::new("docker")
-        .args([
-            "compose",
-            "-f",
-            compose_path.to_str().unwrap(),
-            "down",
-            "--volumes",
-        ])
-        .output()
+    let mut cmd = silent_cmd("docker");
+    cmd.args([
+        "compose",
+        "-f",
+        compose_path.to_str().unwrap(),
+        "down",
+        "--volumes",
+    ]);
+    let output = run_with_timeout(&mut cmd, QUICK_TIMEOUT)
         .await
         .map_err(|e| format!("Failed to run docker compose down --volumes: {e}"))?;
 
@@ -256,28 +257,21 @@ async fn stop_native_process() -> Result<(), String> {
     // Try platform-specific process detection
     #[cfg(target_os = "linux")]
     {
-        let output = tokio::process::Command::new("pgrep")
-            .args(["-f", "openclaw"])
-            .output()
-            .await;
-
-        if let Ok(out) = output {
+        let mut cmd = silent_cmd("pgrep").args(["-f", "openclaw"]);
+        if let Ok(out) = run_with_timeout(&mut cmd, QUICK_TIMEOUT).await {
             if out.status.success() {
                 // Found running processes — try graceful stop first
-                let _ = tokio::process::Command::new("pkill")
-                    .args(["-f", "openclaw"])
-                    .output()
-                    .await;
+                let mut cmd = silent_cmd("pkill").args(["-f", "openclaw"]);
+                let _ = run_with_timeout(&mut cmd, QUICK_TIMEOUT).await;
             }
         }
     }
 
     #[cfg(target_os = "windows")]
     {
-        let _ = tokio::process::Command::new("taskkill")
-            .args(["/IM", "openclaw.exe", "/F"])
-            .output()
-            .await;
+        let mut cmd = silent_cmd("taskkill");
+        cmd.args(["/IM", "openclaw.exe", "/F"]);
+        let _ = run_with_timeout(&mut cmd, QUICK_TIMEOUT).await;
     }
 
     Ok(())

@@ -2,6 +2,8 @@ use serde::{Deserialize, Serialize};
 use tauri::Emitter;
 use tokio::io::AsyncBufReadExt;
 
+use super::silent::{run_with_timeout, silent_cmd, QUICK_TIMEOUT};
+
 /// Node.js installation and version info.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -33,19 +35,17 @@ pub struct PrerequisitesInfo {
 /// Minimum: 22.14.0, Recommended: 24.0.0
 #[tauri::command]
 pub async fn check_nodejs() -> Result<NodeJsInfo, String> {
-    let output = if cfg!(target_os = "windows") {
-        tokio::process::Command::new("cmd")
-            .args(["/c", "node", "--version"])
-            .output()
-            .await
+    let mut cmd = if cfg!(target_os = "windows") {
+        let mut c = silent_cmd("cmd");
+        c.args(["/c", "node", "--version"]);
+        c
     } else {
-        tokio::process::Command::new("node")
-            .arg("--version")
-            .output()
-            .await
+        let mut c = silent_cmd("node");
+        c.arg("--version");
+        c
     };
 
-    match output {
+    match run_with_timeout(&mut cmd, QUICK_TIMEOUT).await {
         Ok(out) if out.status.success() => {
             let version_str = String::from_utf8_lossy(&out.stdout).trim().to_string();
             let version_clean = version_str.trim_start_matches('v');
@@ -89,8 +89,10 @@ pub async fn check_openclaw() -> Result<OpenClawInfo, String> {
         ]
     };
 
-    for (cmd, args) in &attempts {
-        if let Ok(out) = tokio::process::Command::new(cmd).args(args).output().await {
+    for (cmd_name, args) in &attempts {
+        let mut cmd = silent_cmd(cmd_name);
+        cmd.args(args);
+        if let Ok(out) = run_with_timeout(&mut cmd, QUICK_TIMEOUT).await {
             if out.status.success() {
                 let version = String::from_utf8_lossy(&out.stdout).trim().to_string();
                 if !version.is_empty() {
@@ -123,19 +125,17 @@ async fn detect_package_managers() -> Vec<String> {
     let mut available = Vec::new();
 
     for mgr in &managers {
-        let output = if cfg!(target_os = "windows") {
-            tokio::process::Command::new("cmd")
-                .args(["/c", mgr, "--version"])
-                .output()
-                .await
+        let mut cmd = if cfg!(target_os = "windows") {
+            let mut c = silent_cmd("cmd");
+            c.args(["/c", mgr, "--version"]);
+            c
         } else {
-            tokio::process::Command::new(mgr)
-                .arg("--version")
-                .output()
-                .await
+            let mut c = silent_cmd(mgr);
+            c.arg("--version");
+            c
         };
 
-        if let Ok(out) = output {
+        if let Ok(out) = run_with_timeout(&mut cmd, QUICK_TIMEOUT).await {
             if out.status.success() {
                 available.push(mgr.to_string());
             }
@@ -181,13 +181,13 @@ pub async fn install_openclaw_script(app: tauri::AppHandle) -> Result<String, St
         let child = if cfg!(target_os = "windows") {
             let mut args = vec!["/c", pkg_manager.as_str()];
             args.extend(&install_args);
-            tokio::process::Command::new("cmd")
+            silent_cmd("cmd")
                 .args(&args)
                 .stdout(std::process::Stdio::piped())
                 .stderr(std::process::Stdio::piped())
                 .spawn()
         } else {
-            tokio::process::Command::new(pkg_manager)
+            silent_cmd(pkg_manager)
                 .args(&install_args)
                 .stdout(std::process::Stdio::piped())
                 .stderr(std::process::Stdio::piped())
@@ -318,13 +318,13 @@ pub async fn reinstall_openclaw(app: tauri::AppHandle) -> Result<String, String>
         let child = if cfg!(target_os = "windows") {
             let mut args = vec!["/c", pkg_manager.as_str()];
             args.extend(&uninstall_args);
-            tokio::process::Command::new("cmd")
+            silent_cmd("cmd")
                 .args(&args)
                 .stdout(std::process::Stdio::piped())
                 .stderr(std::process::Stdio::piped())
                 .spawn()
         } else {
-            tokio::process::Command::new(pkg_manager)
+            silent_cmd(pkg_manager)
                 .args(&uninstall_args)
                 .stdout(std::process::Stdio::piped())
                 .stderr(std::process::Stdio::piped())
