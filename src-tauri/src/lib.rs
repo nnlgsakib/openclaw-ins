@@ -20,6 +20,13 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .manage(Mutex::new(AppState::default()))
+        .setup(|app| {
+            let window = app.get_webview_window("main").unwrap();
+            let icon_bytes = include_bytes!("../icons/128x128.png");
+            let icon = tauri::image::Image::from_bytes(icon_bytes).unwrap();
+            window.set_icon(icon).unwrap();
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             commands::platform::get_platform_info,
             commands::docker::check_docker_health,
