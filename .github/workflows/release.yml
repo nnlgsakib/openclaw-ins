@@ -20,19 +20,19 @@ jobs:
         include:
           - platform: ubuntu-22.04
             rust_target: x86_64-unknown-linux-gnu
-            label: Linux x86_64
+            label: linux-x86_64
           - platform: ubuntu-22.04-arm
             rust_target: aarch64-unknown-linux-gnu
-            label: Linux ARM64
+            label: linux-aarch64
           - platform: windows-latest
             rust_target: x86_64-pc-windows-msvc
-            label: Windows x86_64
+            label: windows-x86_64
           - platform: macos-13
             rust_target: x86_64-apple-darwin
-            label: macOS Intel
+            label: macos-x86_64
           - platform: macos-latest
             rust_target: aarch64-apple-darwin
-            label: macOS Apple Silicon
+            label: macos-aarch64
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
@@ -80,15 +80,28 @@ jobs:
         shell: bash
         run: |
           cd src-tauri/target/${{ matrix.rust_target }}/release/bundle
-          for f in $(find . -type f \( -name "*.AppImage" -o -name "*.deb" -o -name "*.msi" -o -name "*.exe" -o -name "*.dmg" \)); do
-            sha256sum "$f" > "${f}.sha256"
+          for f in $(find . -type f \( -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" -o -name "*.msi" -o -name "*.exe" -o -name "*.dmg" -o -name "*.zip" \)); do
+            if command -v sha256sum &> /dev/null; then
+              sha256sum "$f" > "${f}.sha256"
+            else
+              shasum -a 256 "$f" > "${f}.sha256"
+            fi
+          done
+
+      - name: Collect release assets
+        shell: bash
+        run: |
+          mkdir -p release-artifacts
+          cd src-tauri/target/${{ matrix.rust_target }}/release/bundle
+          for f in $(find . -type f \( -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" -o -name "*.msi" -o -name "*.exe" -o -name "*.dmg" -o -name "*.zip" -o -name "*.sha256" \)); do
+            cp "$f" "$GITHUB_WORKSPACE/release-artifacts/"
           done
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: clawstation-${{ matrix.label }}
-          path: src-tauri/target/${{ matrix.rust_target }}/release/bundle/**/*
+          name: ${{ matrix.label }}
+          path: release-artifacts/*
           retention-days: 30
 
   release:
@@ -97,29 +110,43 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
+          merge-multiple: true
 
-      - name: Combine checksums
-        run: find artifacts -name "*.sha256" -exec cat {} \; > checksums.txt
-
-      - name: Generate changelog
+      - name: Create release body
         run: |
-          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
-          if [ -n "$PREV_TAG" ]; then
-            git log ${PREV_TAG}..HEAD --oneline --no-merges > changelog.txt
-          else
-            git log --oneline --no-merges > changelog.txt
-          fi
+          cat > release-body.md << 'HEADER'
+          ## ClawStation ${{ github.ref_name }}
+
+          ### Downloads
+
+          | Platform | File |
+          |----------|------|
+          HEADER
+
+          # List artifacts with links
+          for f in artifacts/*; do
+            fname=$(basename "$f")
+            echo "| - | \`$fname\` |" >> release-body.md
+          done
+
+          echo "" >> release-body.md
+          echo "### Checksums (SHA-256)" >> release-body.md
+          echo '```' >> release-body.md
+          cat artifacts/*.sha256 >> release-body.md 2>/dev/null || echo "No checksums generated" >> release-body.md
+          echo '```' >> release-body.md
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/**/*
-          body_path: changelog.txt
+          files: artifacts/*
+          body_path: release-body.md
           generate_release_notes: true
           draft: false
           prerelease: ${{ contains(github.ref, '-beta') || contains(github.ref, '-rc') }}
