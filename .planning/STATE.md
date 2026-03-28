@@ -176,9 +176,10 @@ Last activity: 2026-03-28
 | 260328-v9j | Add open-source license (MIT) for the project | 2026-03-28 | - | [260328-v9j-add-open-source-license-mit-for-the-proj](./quick/260328-v9j-add-open-source-license-mit-for-the-proj/) |
 | 260329-0fy | Format code, run clippy fix, resolve warnings, push, tag | 2026-03-28 | 63ea31a | [260329-0fy-format-code-run-clippy-fix-resolve-warni](./quick/260329-0fy-format-code-run-clippy-fix-resolve-warni/) |
 | 260329-0mn | Fix CI compilation errors in uninstall.rs Linux-specific pgrep/pkill | 2026-03-28 | c97b040 | [260329-0mn-fix-ci-compilation-errors-in-uninstall-r](./quick/260329-0mn-fix-ci-compilation-errors-in-uninstall-r/) |
+| 260329-1af | Fix release.yml to publish as latest release instead of pre-release | 2026-03-28 | c8e5612 | [260329-1af-fix-release-yml-to-publish-as-latest-rel](./quick/260329-1af-fix-release-yml-to-publish-as-latest-rel/) |
 
 ## Session Continuity
 
-**Last action:** 2026-03-28 - Fixed CI Linux compilation errors in uninstall.rs (260329-0mn)
-**Next action:** Continue with v2.0 phases or review CI/CD setup
+**Last action:** 2026-03-28 - Fixed release workflow to publish as latest (260329-1af)
+**Next action:** Re-trigger release for v1.1.0-beta.2 or continue with v2.0 phases
 **Files to review:** `.planning/phases/14-github-workflows-ci-cd/PHASE-LOG.md`
