@@ -122,6 +122,26 @@ Plans:
 
 ---
 
+### Phase 13: Documentation & README
+
+**Goal:** Replace the default Tauri template README with a production-grade project README covering features, architecture, tech stack, setup, and build instructions.
+
+**Requirements:** (none — documentation phase)
+
+**Success Criteria:**
+1. README is 200+ lines of project-specific content — no boilerplate
+2. All 9 pages, 50+ Tauri commands, 13 hooks documented
+3. Tech stack versions match package.json and Cargo.toml exactly
+4. Prerequisites, setup, and build instructions are complete and accurate
+5. Project structure tree matches actual directory layout
+
+**Plans:** 1 plan
+
+Plans:
+- [ ] 13-documentation-readme-01-PLAN.md — Deep codebase analysis and production-grade README.md
+
+---
+
 ### Phase 11: OpenClaw Theme Redesign
 
 **Goal:** Replace the current light blue/slate color palette with OpenClaw's official dark theme — deep black backgrounds with signature red (#ff5c5c) accents.
@@ -149,6 +169,7 @@ Plans:
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
+| 13. Documentation & README | — | 0/1 | 🔲 | — |
 | 12. Gateway Integration & Setup | v2.0 | 0/5 | 🔲 | — |
 | 11. OpenClaw Theme Redesign | v1.2 | 0/3 | 🔲 | — |
 | 7. Installation UX & Animation | v1.1 | 9/9 | ✅ | 2026-03-26 |
