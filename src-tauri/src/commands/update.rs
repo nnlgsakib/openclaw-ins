@@ -314,7 +314,7 @@ async fn fetch_latest_version() -> Result<String, AppError> {
 
     let release: GithubRelease = client
         .get(GITHUB_RELEASES_URL)
-        .header("User-Agent", "openclaw-desktop")
+        .header("User-Agent", "clawstation")
         .send()
         .await
         .map_err(|e| AppError::InstallationFailed {

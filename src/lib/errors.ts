@@ -1,5 +1,5 @@
 /**
- * Error infrastructure for OpenClaw Desktop.
+ * Error infrastructure for ClawStation.
  * Maps technical errors to plain-language messages with suggested fixes.
  */
 
@@ -46,7 +46,7 @@ export const errorMessages: Record<string, AppError> = {
   },
   unsupported_platform: {
     message: "Your operating system is not supported.",
-    suggestion: "OpenClaw Desktop supports Windows 10+ and Linux. macOS support is coming soon.",
+    suggestion: "ClawStation supports Windows 10+ and Linux. macOS support is coming soon.",
   },
   network_error: {
     message: "Could not connect to the internet.",

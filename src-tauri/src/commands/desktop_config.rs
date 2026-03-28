@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-/// Desktop app configuration stored at ~/.openclaw-desktop/config.json.
+/// Desktop app configuration stored at ~/.clawstation/config.json.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct DesktopConfig {
@@ -27,7 +27,7 @@ pub struct AuthProfile {
 
 fn desktop_config_path() -> Result<std::path::PathBuf, String> {
     let home = dirs::home_dir().ok_or("Cannot determine home directory")?;
-    Ok(home.join(".openclaw-desktop").join("config.json"))
+    Ok(home.join(".clawstation").join("config.json"))
 }
 
 fn auth_profiles_path() -> Result<std::path::PathBuf, String> {

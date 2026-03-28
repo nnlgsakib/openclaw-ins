@@ -1,4 +1,4 @@
-# Requirements: OpenClaw Desktop
+# Requirements: ClawStation
 
 **Defined:** 2026-03-25
 **Updated:** 2026-03-27 (v2.0 milestone)

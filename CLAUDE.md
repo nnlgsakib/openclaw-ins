@@ -1,11 +1,35 @@
 <!-- GSD:project-start source:PROJECT.md -->
 ## Project
 
-**OpenClaw Desktop**
+**ClawStation**
 
-A Tauri desktop application that makes OpenClaw — the viral open-source AI agent platform — accessible to non-technical users. It provides a visual interface for the full OpenClaw lifecycle: installing (via Docker or native), configuring, sandboxing, monitoring, updating, and uninstalling. Windows and Linux are primary targets; macOS works but isn't the focus.
+A Tauri desktop application that makes [OpenClaw](https://github.com/openclaw/openclaw) — the viral open-source AI agent platform — accessible to non-technical users. It solves the core problem: OpenClaw is powerful but requires CLI knowledge to install, configure, sandbox, and manage. ClawStation replaces the terminal with a visual interface for the full lifecycle: installing (via Docker or native), configuring API keys and models, sandboxing with Docker, monitoring agent activity, updating, and uninstalling.
 
 **Core Value:** Make OpenClaw installable and manageable by anyone — from download to daily use — without touching a terminal.
+
+### What It Does
+
+- **Install OpenClaw** — One-click Docker or native install with real-time progress
+- **Configure** — Visual editor for models, API keys, sandbox settings, and tool policies
+- **Sandbox** — Docker-based isolation with configurable workspace access and network policies
+- **Monitor** — Live dashboard showing agent sessions, container status, and log streams
+- **Update** — One-click updates for both OpenClaw and ClawStation itself
+- **Manage Channels** — Connect WhatsApp, Telegram, Discord with guided setup wizards
+
+### How to Install
+
+**From releases (Windows/Linux):**
+1. Download the installer from GitHub Releases
+2. Run the installer (.msi on Windows, .AppImage/.deb on Linux)
+3. ClawStation launches with a setup wizard
+
+**From source:**
+```bash
+git clone https://github.com/openclaw/clawstation.git
+cd clawstation
+pnpm install
+pnpm tauri dev
+```
 
 ### Constraints
 

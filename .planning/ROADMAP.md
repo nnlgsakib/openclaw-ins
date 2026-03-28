@@ -1,4 +1,4 @@
-# Roadmap: OpenClaw Desktop
+# Roadmap: ClawStation
 
 **Created:** 2026-03-25
 **Core Value:** Make OpenClaw installable and manageable by anyone — from download to daily use — without touching a terminal.
@@ -97,7 +97,7 @@ Plans:
 
 ### Phase 12: Gateway Integration & Setup Wizard
 
-**Goal:** Make OpenClaw Desktop actually work by connecting to the OpenClaw Gateway, providing a config-first setup wizard, and exposing real management APIs. The current app only manages Docker installation — this phase delivers actual Gateway integration.
+**Goal:** Make ClawStation actually work by connecting to the OpenClaw Gateway, providing a config-first setup wizard, and exposing real management APIs. The current app only manages Docker installation — this phase delivers actual Gateway integration.
 
 **Requirements:** GW-01, GW-02, GW-03, GW-04, GW-05, GW-06, GW-07, GW-08, GW-09, GW-10, GW-11, GW-12, GW-13, GW-14, GW-15, GW-16, GW-17
 

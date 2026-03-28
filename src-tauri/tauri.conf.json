@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "openclaw-desktop",
+  "productName": "ClawStation",
   "version": "0.1.0",
-  "identifier": "com.openclaw.installer",
+  "identifier": "com.clawstation.app",
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "openclaw-desktop",
+        "title": "ClawStation",
         "width": 800,
         "height": 600
       }
@@ -36,7 +36,7 @@
   "plugins": {
     "updater": {
       "endpoints": [
-        "https://raw.githubusercontent.com/openclaw/openclaw-installer/main/latest.json"
+        "https://raw.githubusercontent.com/openclaw/clawstation/main/latest.json"
       ],
       "pubkey": "GENERATE_WITH_tauri_signer_generate"
     }

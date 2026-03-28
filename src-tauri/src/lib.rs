@@ -1,4 +1,4 @@
-// OpenClaw Desktop — Tauri v2 application
+// ClawStation — Tauri v2 desktop manager for OpenClaw
 
 mod commands;
 mod docker;

@@ -12,7 +12,7 @@ progress:
   completed_plans: 12
 ---
 
-# STATE: OpenClaw Desktop
+# STATE: ClawStation
 
 ## Project Reference
 

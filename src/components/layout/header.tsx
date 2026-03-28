@@ -10,7 +10,7 @@ export function Header() {
     <header className="flex h-12 items-center justify-between border-b bg-card px-4">
       <div className="flex items-center gap-2">
         <Clapperboard className="h-5 w-5 text-primary" />
-        <span className="text-lg font-semibold text-foreground">OpenClaw Desktop</span>
+        <span className="text-lg font-semibold text-foreground">ClawStation</span>
       </div>
       <div className="flex items-center gap-3">
         <PlatformBadge />

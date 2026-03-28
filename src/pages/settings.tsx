@@ -38,7 +38,7 @@ export function Settings() {
     checkForUpdates,
     installUpdate,
   } = useAppUpdate();
-  const [appName, setAppName] = useState("OpenClaw Desktop");
+  const [appName, setAppName] = useState("ClawStation");
   const [appVersion, setAppVersion] = useState("...");
 
   useEffect(() => {
@@ -114,7 +114,7 @@ export function Settings() {
     <div className="space-y-6 p-6">
       <div>
         <h1 className="text-2xl font-bold">Settings</h1>
-        <p className="text-muted-foreground">Manage your OpenClaw Desktop preferences</p>
+        <p className="text-muted-foreground">Manage your ClawStation preferences</p>
       </div>
 
       {/* OpenClaw Update Card */}

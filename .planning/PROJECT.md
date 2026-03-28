@@ -1,8 +1,12 @@
-# OpenClaw Desktop
+# ClawStation
 
 ## What This Is
 
-A Tauri desktop application that makes OpenClaw — the viral open-source AI agent platform — accessible to non-technical users. It provides a visual interface for the full OpenClaw lifecycle: installing (via Docker or native), configuring, sandboxing, monitoring, updating, and uninstalling. Windows and Linux are primary targets; macOS works but isn't the focus.
+A Tauri desktop application that makes OpenClaw — the viral open-source AI agent platform — accessible to non-technical users. OpenClaw is powerful but requires CLI expertise to install, configure, sandbox, and manage. ClawStation solves this by providing a visual interface for the full lifecycle: installing (via Docker or native), configuring, sandboxing, monitoring, updating, and uninstalling. Windows and Linux are primary targets; macOS works but isn't the focus.
+
+**Problem:** OpenClaw's CLI-first approach excludes non-technical users who want AI agents without terminal complexity.
+**Solution:** A native desktop app that wraps the full OpenClaw lifecycle in a polished GUI — install, configure, sandbox, monitor, update, uninstall — all without touching a terminal.
+**How it works:** Tauri v2 app (Rust backend + React frontend) that manages Docker containers, spawns OpenClaw processes, and connects to the Gateway WebSocket for live data.
 
 ## Core Value
 
