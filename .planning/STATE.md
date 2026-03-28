@@ -171,9 +171,10 @@ Last activity: 2026-03-28
 | 260328-k8h | Fix all ESLint errors and warnings | 2026-03-28 | - | [260328-k8h-fix-eslint-errors-and-warnings](./quick/260328-k8h-fix-eslint-errors-and-warnings/) |
 | 260328-omt | Create a new tag and push it as a beta | 2026-03-28 | - | [260328-omt-create-a-new-tag-and-push-it-as-a-beta](./quick/260328-omt-create-a-new-tag-and-push-it-as-a-beta/) |
 | 260328-ovi | Fix release.yml bash syntax error in checksum loop | 2026-03-28 | - | [260328-ovi-fix-release-yml-bash-syntax-error-in-che](./quick/260328-ovi-fix-release-yml-bash-syntax-error-in-che/) |
+| 260328-p01 | Delete previous tags and push new beta tag | 2026-03-28 | - | [260328-p01-delete-previous-tags-and-push-new-beta-t](./quick/260328-p01-delete-previous-tags-and-push-new-beta-t/) |
 
 ## Session Continuity
 
-**Last action:** 2026-03-28 - Fixed release.yml bash syntax error in checksum loop (260328-ovi)
+**Last action:** 2026-03-28 - Deleted previous tags and pushed new v1.1.0-beta.1 tag (260328-p01)
 **Next action:** Continue with v2.0 phases or review CI/CD setup
 **Files to review:** `.planning/phases/14-github-workflows-ci-cd/PHASE-LOG.md`
