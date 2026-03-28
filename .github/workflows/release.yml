@@ -76,32 +76,38 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
-      - name: Generate checksums
+      - name: Prepare release assets
         shell: bash
         run: |
-          cd src-tauri/target/${{ matrix.rust_target }}/release/bundle
-          for f in $(find . -type f \( -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" -o -name "*.msi" -o -name "*.exe" -o -name "*.dmg" -o -name "*.zip" \)); do
-            if command -v sha256sum &> /dev/null; then
-              sha256sum "$f" > "${f}.sha256"
-            else
-              shasum -a 256 "$f" > "${f}.sha256"
-            fi
-          done
-
-      - name: Collect release assets
-        shell: bash
-        run: |
+          BUNDLE_DIR="src-tauri/target/${{ matrix.rust_target }}/release/bundle"
           mkdir -p release-artifacts
-          cd src-tauri/target/${{ matrix.rust_target }}/release/bundle
-          for f in $(find . -type f \( -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" -o -name "*.msi" -o -name "*.exe" -o -name "*.dmg" -o -name "*.zip" -o -name "*.sha256" \)); do
-            cp "$f" "$GITHUB_WORKSPACE/release-artifacts/"
-          done
+          echo "Looking for bundles in: $BUNDLE_DIR"
+          ls -la "$BUNDLE_DIR" || true
+          # Copy installers and generate checksums
+          find "$BUNDLE_DIR" -type f \( \
+            -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" \
+            -o -name "*.msi" -o -name "*.exe" -o -name "*.dmg" \
+            -o -name "*.zip" -o -name "*.sig" \
+          \) -exec bash -c '
+            cp "$1" release-artifacts/
+            echo "Copied: $(basename "$1")"
+            if [[ "$1" != *.sig ]]; then
+              if command -v sha256sum &> /dev/null; then
+                sha256sum "$1" > "release-artifacts/$(basename "$1").sha256"
+              else
+                shasum -a 256 "$1" > "release-artifacts/$(basename "$1").sha256"
+              fi
+              echo "Checksummed: $(basename "$1")"
+            fi
+          ' _ {} \;
+          echo "--- release-artifacts contents ---"
+          ls -la release-artifacts/
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.label }}
-          path: release-artifacts/*
+          path: release-artifacts
           retention-days: 30
 
   release:
@@ -119,28 +125,36 @@ jobs:
           path: artifacts
           merge-multiple: true
 
+      - name: List downloaded artifacts
+        run: |
+          echo "--- artifacts directory ---"
+          find artifacts -type f | sort
+
       - name: Create release body
         run: |
-          cat > release-body.md << 'HEADER'
-          ## ClawStation ${{ github.ref_name }}
-
-          ### Downloads
-
-          | Platform | File |
-          |----------|------|
-          HEADER
-
-          # List artifacts with links
-          for f in artifacts/*; do
-            fname=$(basename "$f")
-            echo "| - | \`$fname\` |" >> release-body.md
-          done
-
-          echo "" >> release-body.md
-          echo "### Checksums (SHA-256)" >> release-body.md
-          echo '```' >> release-body.md
-          cat artifacts/*.sha256 >> release-body.md 2>/dev/null || echo "No checksums generated" >> release-body.md
-          echo '```' >> release-body.md
+          {
+            echo "## ClawStation ${{ github.ref_name }}"
+            echo ""
+            echo "### Downloads"
+            echo ""
+            echo "| File | SHA-256 |"
+            echo "|------|---------|"
+            for f in artifacts/*.sha256; do
+              [ -f "$f" ] || continue
+              fname=$(basename "$f" .sha256)
+              hash=$(awk '{print $1}' "$f")
+              echo "| \`$fname\` | \`${hash:0:16}...\` |"
+            done
+            echo ""
+            echo "<details><summary>Full checksums</summary>"
+            echo ""
+            echo '```'
+            cat artifacts/*.sha256 2>/dev/null || echo "No checksums"
+            echo '```'
+            echo ""
+            echo "</details>"
+          } > release-body.md
+          cat release-body.md
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
