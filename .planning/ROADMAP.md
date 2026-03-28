@@ -178,10 +178,12 @@ Plans:
 4. Commands that exceed timeout return a clear error instead of hanging indefinitely
 5. All existing tests pass with zero regressions
 
-**Plans:** 1 plan
+**Plans:** 3 plans in 2 waves
 
 Plans:
-- [ ] 15-01-PLAN.md — Create CREATE_NO_WINDOW helper module and migrate all 12 command/install files
+- [x] 15-01-PLAN.md — Create CREATE_NO_WINDOW helper module and migrate all 12 command/install files
+- [ ] 15-02-PLAN.md — Fix 8 compilation errors (E0716 borrow checker) and warning in migrated files
+- [ ] 15-03-PLAN.md — Migrate 3 install files (native_install, verify, docker_install) to use silent_cmd
 
 ---
 
@@ -212,7 +214,7 @@ Plans:
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 15. Production Build Fixes | — | 0/1 | In Progress | — |
+| 15. Production Build Fixes | — | 1/3 | In Progress | — |
 | 14. GitHub Workflows & CI/CD | — | 2/3 | In Progress | — |
 | 13. Documentation & README | — | 0/1 | 🔲 | — |
 | 12. Gateway Integration & Setup | v2.0 | 0/5 | 🔲 | — |
