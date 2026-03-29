@@ -204,13 +204,13 @@ Plans:
 6. New OpenClaw extensions automatically appear without ClawStation code changes
 7. Channel config fields generated from JSON Schema (no hardcoded field definitions)
 
-**Plans:** 4 plans in 3 waves
+**Plans:** 4/4 plans complete
 
 Plans:
-- [ ] 16-01-PLAN.md — Dynamic metadata extraction: Rust command to parse OpenClaw bundled metadata, extract channel/provider lists with schemas
-- [ ] 16-02-PLAN.md — Dynamic provider & channel lists: Update wizard store, channels page, configure page to use dynamic data
-- [ ] 16-03-PLAN.md — Schema-driven config editor: Dynamic form generation from OpenClaw config JSON Schema for all 24+ sections
-- [ ] 16-04-PLAN.md — Dynamic channel pairing: Generate pairing dialogs from per-channel config schema instead of hardcoded fields
+- [x] 16-01-PLAN.md — Dynamic metadata extraction: Rust command to parse OpenClaw bundled metadata, extract channel/provider lists with schemas
+- [x] 16-02-PLAN.md — Dynamic provider & channel lists: Update wizard store, channels page, configure page to use dynamic data
+- [x] 16-03-PLAN.md — Schema-driven config editor: Dynamic form generation from OpenClaw config JSON Schema for all 24+ sections
+- [x] 16-04-PLAN.md — Dynamic channel pairing: Generate pairing dialogs from per-channel config schema instead of hardcoded fields
 
 ---
 
@@ -241,7 +241,7 @@ Plans:
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 16. OpenClaw Full Integration | v2.0 | 0/4 | 🔲 | — |
+| 16. OpenClaw Full Integration | v2.0 | 4/4 | Complete   | 2026-03-29 |
 | 15. Production Build Fixes | — | 1/4 | In Progress | — |
 | 14. GitHub Workflows & CI/CD | — | 2/3 | In Progress | — |
 | 13. Documentation & README | — | 0/1 | 🔲 | — |
