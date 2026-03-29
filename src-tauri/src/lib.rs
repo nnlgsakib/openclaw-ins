@@ -80,6 +80,10 @@ pub fn run() {
             commands::desktop_config::write_desktop_config,
             commands::desktop_config::write_auth_profile,
             commands::desktop_config::write_env_key,
+            // OpenClaw metadata discovery (Phase 16)
+            commands::openclaw_metadata::get_all_channels,
+            commands::openclaw_metadata::get_all_providers,
+            commands::openclaw_metadata::get_openclaw_metadata,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

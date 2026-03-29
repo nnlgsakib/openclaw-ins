@@ -9,6 +9,7 @@ pub mod install;
 pub mod models;
 pub mod monitoring;
 pub mod nodejs;
+pub mod openclaw_metadata;
 pub mod platform;
 pub mod silent;
 pub mod system_check;
