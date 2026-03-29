@@ -189,6 +189,31 @@ Plans:
 
 ---
 
+### Phase 16: OpenClaw Full Integration (Dynamic Discovery)
+
+**Goal:** Expose ALL OpenClaw capabilities dynamically in ClawStation — 27+ channels, 25+ providers, 24+ config sections — instead of hardcoding a small subset.
+
+**Requirements:** DYN-01, DYN-02, DYN-03, DYN-04, DYN-05, DYN-06, DYN-07
+
+**Success Criteria:**
+1. Setup wizard shows all 25+ providers from OpenClaw metadata (not 20 hardcoded)
+2. Setup wizard shows all 27+ channels from OpenClaw metadata (not 6 hardcoded)
+3. Configure page exposes all 24+ config sections with schema-driven forms
+4. Channel pairing dialogs dynamically generated from per-channel config schema
+5. Provider list enriched by Gateway API when connected (real status)
+6. New OpenClaw extensions automatically appear without ClawStation code changes
+7. Channel config fields generated from JSON Schema (no hardcoded field definitions)
+
+**Plans:** 4 plans in 3 waves
+
+Plans:
+- [ ] 16-01-PLAN.md — Dynamic metadata extraction: Rust command to parse OpenClaw bundled metadata, extract channel/provider lists with schemas
+- [ ] 16-02-PLAN.md — Dynamic provider & channel lists: Update wizard store, channels page, configure page to use dynamic data
+- [ ] 16-03-PLAN.md — Schema-driven config editor: Dynamic form generation from OpenClaw config JSON Schema for all 24+ sections
+- [ ] 16-04-PLAN.md — Dynamic channel pairing: Generate pairing dialogs from per-channel config schema instead of hardcoded fields
+
+---
+
 ### Phase 14: GitHub Workflows & CI/CD
 
 **Goal:** Add professional GitHub Actions workflows for format checking, CI testing, cross-platform release builds with checksums, and dependency management. Ship installers for Linux (x64/arm64), Windows (x64), and macOS (Intel/Apple Silicon) via tagged releases.
@@ -216,6 +241,7 @@ Plans:
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
+| 16. OpenClaw Full Integration | v2.0 | 0/4 | 🔲 | — |
 | 15. Production Build Fixes | — | 1/4 | In Progress | — |
 | 14. GitHub Workflows & CI/CD | — | 2/3 | In Progress | — |
 | 13. Documentation & README | — | 0/1 | 🔲 | — |
@@ -299,6 +325,20 @@ Plans:
 | PROD-02 | Phase 15 | 🔲 |
 
 **Coverage:** 0/2 production build requirements planned ✓
+
+## Full Integration Traceability
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| DYN-01 | Phase 16 | 🔲 |
+| DYN-02 | Phase 16 | 🔲 |
+| DYN-03 | Phase 16 | 🔲 |
+| DYN-04 | Phase 16 | 🔲 |
+| DYN-05 | Phase 16 | 🔲 |
+| DYN-06 | Phase 16 | 🔲 |
+| DYN-07 | Phase 16 | 🔲 |
+
+**Coverage:** 0/7 full integration requirements planned ✓
 
 ---
 
