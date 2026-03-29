@@ -7,6 +7,7 @@ import {
   PROVIDER_CATEGORIES,
 } from "@/stores/use-wizard-store";
 import { useProviderModels } from "@/hooks/use-models";
+import { useOpenClawMetadata } from "@/hooks/use-openclaw-metadata";
 import { cn } from "@/lib/utils";
 import type { ModelProvider } from "@/stores/use-wizard-store";
 
@@ -26,7 +27,38 @@ export function ModelStep() {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [modelSearch, setModelSearch] = useState("");
 
-  const selectedProvider = MODEL_PROVIDERS.find(
+  // Dynamic metadata from OpenClaw
+  const { data: metadata } = useOpenClawMetadata();
+  const allProviders = useMemo(() => {
+    if (!metadata) return MODEL_PROVIDERS;
+    return metadata.providers.map(p => ({
+      id: p.id,
+      name: p.name,
+      description: p.description,
+      models: p.models.map(m => m.id),
+      aliases: Object.fromEntries(p.models.map(m => [m.id, m.name])),
+      authType: p.authType as "api-key" | "oauth" | "none" | "token",
+      envVar: p.envVar,
+      keyFormat: p.keyFormat,
+      keyPlaceholder: p.keyPlaceholder,
+      docsUrl: p.docsUrl,
+      category: p.category as "major" | "multi-provider" | "local" | "regional" | "other",
+    }));
+  }, [metadata]);
+
+  // Extended categories including regional
+  const effectiveCategories = useMemo(() => {
+    if (!metadata) return PROVIDER_CATEGORIES;
+    const cats: Record<string, string> = { ...PROVIDER_CATEGORIES };
+    for (const p of metadata.providers) {
+      if (!(p.category in cats)) {
+        cats[p.category] = p.category.charAt(0).toUpperCase() + p.category.slice(1);
+      }
+    }
+    return cats;
+  }, [metadata]);
+
+  const selectedProvider = allProviders.find(
     (p) => p.id === modelProvider
   );
 
@@ -74,7 +106,7 @@ export function ModelStep() {
   }, [allModels, modelSearch]);
 
   // Filter providers by search and category
-  const filteredProviders = MODEL_PROVIDERS.filter((p) => {
+  const filteredProviders = allProviders.filter((p) => {
     const matchesSearch =
       !providerSearch ||
       p.name.toLowerCase().includes(providerSearch.toLowerCase()) ||
@@ -85,7 +117,7 @@ export function ModelStep() {
   });
 
   // Group filtered providers by category
-  const groupedProviders = Object.entries(PROVIDER_CATEGORIES)
+  const groupedProviders = Object.entries(effectiveCategories)
     .map(([catId, catLabel]) => ({
       id: catId,
       label: catLabel,
@@ -133,7 +165,7 @@ export function ModelStep() {
         >
           All
         </button>
-        {Object.entries(PROVIDER_CATEGORIES).map(([id, label]) => (
+        {Object.entries(effectiveCategories).map(([id, label]) => (
           <button
             key={id}
             onClick={() =>

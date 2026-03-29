@@ -1,6 +1,8 @@
 import { motion } from "motion/react";
 import { MessageSquare } from "lucide-react";
+import { useMemo } from "react";
 import { useWizardStore, CHANNEL_OPTIONS } from "@/stores/use-wizard-store";
+import { useOpenClawMetadata } from "@/hooks/use-openclaw-metadata";
 import { cn } from "@/lib/utils";
 
 export function ChannelsStep() {
@@ -12,6 +14,25 @@ export function ChannelsStep() {
     dmPolicies,
     setDmPolicy,
   } = useWizardStore();
+
+  // Dynamic metadata from OpenClaw
+  const { data: metadata } = useOpenClawMetadata();
+  const allChannels = useMemo(() => {
+    if (!metadata) return CHANNEL_OPTIONS;
+    return metadata.channels.map(ch => ({
+      id: ch.id,
+      name: ch.name,
+      description: ch.description,
+      fields: ch.configFields.map(f => ({
+        key: f.key,
+        label: f.label,
+        type: f.fieldType as "text" | "password" | "select",
+        placeholder: f.placeholder,
+        required: f.required,
+        options: f.enumValues?.map(v => ({ label: v, value: v })),
+      })),
+    }));
+  }, [metadata]);
 
   return (
     <motion.div
@@ -29,7 +50,7 @@ export function ChannelsStep() {
       </div>
 
       <div className="space-y-3">
-        {CHANNEL_OPTIONS.map((channel) => {
+        {allChannels.map((channel) => {
           const isEnabled = selectedChannels.includes(channel.id);
           const config = channelConfigs[channel.id] ?? {};
           const dmPolicy = dmPolicies[channel.id] ?? "pairing";
