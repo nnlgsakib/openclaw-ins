@@ -56,6 +56,10 @@ export interface WizardState {
   dmPolicies: Record<string, DmPolicy>;
   providerSearch: string;
 
+  // Dynamic metadata (from OpenClaw metadata commands)
+  dynamicProviders: ModelProvider[];
+  dynamicChannels: ChannelOption[];
+
   // Navigation
   nextStep: () => void;
   prevStep: () => void;
@@ -76,6 +80,13 @@ export interface WizardState {
   setChannelField: (channelId: string, field: string, value: string) => void;
   setDmPolicy: (channelId: string, policy: DmPolicy) => void;
   setProviderSearch: (search: string) => void;
+
+  // Dynamic metadata setter
+  setDynamicData: (providers: ModelProvider[], channels: ChannelOption[]) => void;
+
+  // Effective data getters
+  getEffectiveProviders: () => ModelProvider[];
+  getEffectiveChannels: () => ChannelOption[];
 
   // Config generation
   getGeneratedConfig: () => Record<string, unknown>;
@@ -478,6 +489,8 @@ const initialState = {
   channelConfigs: {} as Record<string, Record<string, string>>,
   dmPolicies: {} as Record<string, DmPolicy>,
   providerSearch: "",
+  dynamicProviders: [] as ModelProvider[],
+  dynamicChannels: [] as ChannelOption[],
 };
 
 // ─── Store ────────────────────────────────────────────────────────
@@ -537,6 +550,18 @@ export const useWizardStore = create<WizardState>((set, get) => ({
       dmPolicies: { ...state.dmPolicies, [channelId]: policy },
     })),
   setProviderSearch: (search) => set({ providerSearch: search }),
+
+  // Dynamic metadata
+  setDynamicData: (providers, channels) =>
+    set({ dynamicProviders: providers, dynamicChannels: channels }),
+  getEffectiveProviders: () => {
+    const state = get();
+    return state.dynamicProviders.length > 0 ? state.dynamicProviders : MODEL_PROVIDERS;
+  },
+  getEffectiveChannels: () => {
+    const state = get();
+    return state.dynamicChannels.length > 0 ? state.dynamicChannels : CHANNEL_OPTIONS;
+  },
 
   // Get the effective model ID (selected or custom)
   getEffectiveModel: () => {
