@@ -250,7 +250,7 @@ Plans:
 4. Status transitions are smooth with clear visual feedback at each stage
 5. No stale "connected" state if gateway crashes without emitting stopped event
 
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 
 Plans:
 - [x] 17-gateway-startup-ux-fix-01-PLAN.md — Backend: Add health check polling to gateway status, expose startup phases via events
@@ -263,7 +263,7 @@ Plans:
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 17. Gateway Startup UX Fix | — | 1/3 | In Progress|  |
+| 17. Gateway Startup UX Fix | — | 2/3 | In Progress|  |
 | 16. OpenClaw Full Integration | v2.0 | 4/4 | Complete   | 2026-03-29 |
 | 15. Production Build Fixes | — | 1/4 | In Progress | — |
 | 14. GitHub Workflows & CI/CD | — | 2/3 | In Progress | — |
