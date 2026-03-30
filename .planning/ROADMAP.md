@@ -254,8 +254,8 @@ Plans:
 
 Plans:
 - [x] 17-gateway-startup-ux-fix-01-PLAN.md — Backend: Add health check polling to gateway status, expose startup phases via events
-- [ ] 17-gateway-startup-ux-fix-02-PLAN.md — Frontend: Add "starting" state to gateway store, update status indicator with phase feedback
-- [ ] 17-gateway-startup-ux-fix-03-PLAN.md — UX Polish: Add startup progress indicator, disable WebUI link until ready, add timeout handling
+- [x] 17-gateway-startup-ux-fix-02-PLAN.md — Frontend: Add "starting" state to gateway store, update status indicator with phase feedback
+- [x] 17-gateway-startup-ux-fix-03-PLAN.md — UX Polish: Add startup progress indicator, disable WebUI link until ready, add timeout handling
 
 ---
 
@@ -263,7 +263,7 @@ Plans:
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 17. Gateway Startup UX Fix | — | 2/3 | Complete    | 2026-03-30 |
+| 17. Gateway Startup UX Fix | — | 3/3 | Complete    | 2026-03-30 |
 | 16. OpenClaw Full Integration | v2.0 | 4/4 | Complete   | 2026-03-29 |
 | 15. Production Build Fixes | — | 1/4 | In Progress | — |
 | 14. GitHub Workflows & CI/CD | — | 2/3 | In Progress | — |
