@@ -109,6 +109,7 @@ Make OpenClaw installable and manageable by anyone — from download to daily us
 - One-click updates (OpenClaw + desktop app) with progress
 - Clean uninstall with config preservation option
 - Polished UI: skeleton loading states, button micro-interactions, page transition animations
+- Gateway startup UX: accurate status transitions (Starting → Health Checking → Ready), disabled WebUI links until ready
 
 ### Known Technical Debt
 - `setup_sandbox` backend command stubbed (frontend handles gracefully)
@@ -133,4 +134,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-26 after Phase 07 (installation-ux-animation-foundation) completion*
+*Last updated: 2026-03-30 after Phase 17 (gateway-startup-ux-fix) completion*
