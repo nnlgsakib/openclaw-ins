@@ -237,10 +237,33 @@ Plans:
 
 ---
 
+### Phase 17: Gateway Startup UX Fix
+
+**Goal:** Fix the gateway startup status detection race condition and improve UX so users see accurate, real-time status instead of optimistic "connected" state before gateway is actually ready to serve the WebUI.
+
+**Requirements:** GW-FIX-01, GW-FIX-02, GW-FIX-03
+
+**Success Criteria:**
+1. UI shows "Starting..." state while gateway process is initializing (not immediately "Connected")
+2. Gateway status reflects actual readiness (health check passed, not just process spawned)
+3. WebUI link only becomes clickable when gateway is confirmed ready to serve requests
+4. Status transitions are smooth with clear visual feedback at each stage
+5. No stale "connected" state if gateway crashes without emitting stopped event
+
+**Plans:** 1/3 plans executed
+
+Plans:
+- [x] 17-gateway-startup-ux-fix-01-PLAN.md — Backend: Add health check polling to gateway status, expose startup phases via events
+- [ ] 17-gateway-startup-ux-fix-02-PLAN.md — Frontend: Add "starting" state to gateway store, update status indicator with phase feedback
+- [ ] 17-gateway-startup-ux-fix-03-PLAN.md — UX Polish: Add startup progress indicator, disable WebUI link until ready, add timeout handling
+
+---
+
 ## Progress Table
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
+| 17. Gateway Startup UX Fix | — | 1/3 | In Progress|  |
 | 16. OpenClaw Full Integration | v2.0 | 4/4 | Complete   | 2026-03-29 |
 | 15. Production Build Fixes | — | 1/4 | In Progress | — |
 | 14. GitHub Workflows & CI/CD | — | 2/3 | In Progress | — |
