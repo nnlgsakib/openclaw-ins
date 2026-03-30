@@ -34,3 +34,5 @@ src-tauri/target/
 # Tauri signing key (NEVER commit)
 src-tauri/tauri.key
 openclaw
+
+modellist.config
