@@ -80,16 +80,17 @@ export function useGatewayStatusListener() {
  * Gateway management actions: start, stop, restart.
  */
 export function useGatewayActions() {
-  const { setConnected, setDisconnected, setError } = useGatewayStore();
+  const { setDisconnected, setError } = useGatewayStore();
 
   const start = useCallback(async () => {
     try {
+      useGatewayStore.getState().setStartupPhase('starting');
       await invoke("start_gateway", { port: 18789 });
-      setConnected();
+      // Do NOT call setConnected() - wait for gateway-status event from health check
     } catch (e) {
       setError(String(e));
     }
-  }, [setConnected, setError]);
+  }, [setError]);
 
   const stop = useCallback(async () => {
     try {
@@ -102,12 +103,15 @@ export function useGatewayActions() {
 
   const restart = useCallback(async () => {
     try {
+      const { setStartupPhase } = useGatewayStore.getState();
+      setDisconnected();
+      setStartupPhase('starting');
       await invoke("restart_gateway", { port: 18789 });
-      setConnected();
+      // Do NOT call setConnected() - wait for gateway-status event
     } catch (e) {
       setError(String(e));
     }
-  }, [setConnected, setError]);
+  }, [setDisconnected, setError]);
 
   const killExternal = useCallback(async () => {
     try {
