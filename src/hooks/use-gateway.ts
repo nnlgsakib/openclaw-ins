@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useGatewayStore } from "@/stores/use-gateway-store";
+import type { GatewayStartupPhase } from "@/stores/use-gateway-store";
 
 // ─── Types ────────────────────────────────────────────────────────
 
@@ -23,6 +24,7 @@ interface GatewayStatusResult {
   running: boolean;
   port: number;
   pid: number | null;
+  startupPhase?: GatewayStartupPhase;
 }
 
 // ─── Hooks ────────────────────────────────────────────────────────
@@ -39,16 +41,25 @@ export function useGatewayStatusListener() {
     invoke<GatewayStatusResult>("get_gateway_status")
       .then((status) => {
         if (status.running) {
-          setConnected();
+          if (status.startupPhase === 'ready') {
+            setConnected();
+          } else if (status.startupPhase) {
+            useGatewayStore.getState().setStartupPhase(status.startupPhase);
+          }
         }
       })
       .catch(() => {});
 
-    // Listen for gateway-started events
+    // Listen for gateway-status events (ready from health check)
     const unlisten1 = listen<GatewayStatusEvent>("gateway-status", (event) => {
       if (event.payload.connected) {
         setConnected();
       }
+    });
+
+    // Listen for startup phase changes from backend health check
+    const unlisten_startup = listen<{ phase: GatewayStartupPhase }>("gateway-startup-phase", (event) => {
+      useGatewayStore.getState().setStartupPhase(event.payload.phase);
     });
 
     // Listen for gateway output that indicates ready
@@ -68,12 +79,39 @@ export function useGatewayStatusListener() {
       setDisconnected();
     });
 
+    // Listen for health check failure
+    const unlisten_failed = listen<{ reason: string }>("gateway-health-failed", (event) => {
+      useGatewayStore.getState().setError(event.payload.reason);
+    });
+
     return () => {
       unlisten1.then((fn) => fn());
+      unlisten_startup.then((fn) => fn());
       unlisten2.then((fn) => fn());
       unlisten3.then((fn) => fn());
+      unlisten_failed.then((fn) => fn());
     };
   }, [setConnected, setDisconnected]);
+
+  // Fallback polling: check gateway status every 5s during startup
+  useEffect(() => {
+    const pollInterval = setInterval(() => {
+      const { startupPhase, connected } = useGatewayStore.getState();
+      if (!connected && (startupPhase === 'starting' || startupPhase === 'health_checking')) {
+        invoke<GatewayStatusResult>("get_gateway_status")
+          .then((status) => {
+            if (status.running && status.startupPhase === 'ready') {
+              useGatewayStore.getState().setConnected();
+            } else if (status.startupPhase === 'health_checking') {
+              useGatewayStore.getState().setStartupPhase('health_checking');
+            }
+          })
+          .catch(() => {});
+      }
+    }, 5000);
+
+    return () => clearInterval(pollInterval);
+  }, []);
 }
 
 /**
