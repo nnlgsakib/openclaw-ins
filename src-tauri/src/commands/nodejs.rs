@@ -134,12 +134,18 @@ pub async fn check_prerequisites() -> Result<PrerequisitesInfo, String> {
     Ok(PrerequisitesInfo { nodejs, openclaw })
 }
 
-/// Detect all available package managers in priority order: pnpm > yarn > npm.
+/// Detect all available package managers.
+/// On Windows: npm first (most reliable), then pnpm, then yarn.
+/// On Linux/macOS: pnpm > yarn > npm (community preference).
 async fn detect_package_managers() -> Vec<String> {
-    let managers = ["pnpm", "yarn", "npm"];
+    let managers: &[&str] = if cfg!(target_os = "windows") {
+        &["npm", "pnpm", "yarn"]
+    } else {
+        &["pnpm", "yarn", "npm"]
+    };
     let mut available = Vec::new();
 
-    for mgr in &managers {
+    for mgr in managers {
         let mut cmd = if cfg!(target_os = "windows") {
             let mut c = silent_cmd("cmd");
             c.args(["/c", mgr, "--version"]);
@@ -160,27 +166,83 @@ async fn detect_package_managers() -> Vec<String> {
     available
 }
 
+/// Detect which package manager was used to install openclaw globally.
+///
+/// Checks each manager's global install directory for the openclaw package.
+/// Returns the manager name if found, or None if detection fails.
+async fn detect_install_manager() -> Option<String> {
+    // Check npm global root
+    let npm_root = {
+        let mut cmd = if cfg!(target_os = "windows") {
+            let mut c = silent_cmd("cmd");
+            c.args(["/c", "npm", "root", "-g"]);
+            c
+        } else {
+            let mut c = silent_cmd("npm");
+            c.args(["root", "-g"]);
+            c
+        };
+        run_with_timeout(&mut cmd, QUICK_TIMEOUT)
+            .await
+            .ok()
+            .filter(|o| o.status.success())
+            .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+    };
+
+    if let Some(root) = &npm_root {
+        let openclaw_dir = std::path::PathBuf::from(root).join("openclaw");
+        if openclaw_dir.exists() {
+            return Some("npm".to_string());
+        }
+    }
+
+    // Check pnpm global root
+    let pnpm_root = {
+        let mut cmd = if cfg!(target_os = "windows") {
+            let mut c = silent_cmd("cmd");
+            c.args(["/c", "pnpm", "root", "-g"]);
+            c
+        } else {
+            let mut c = silent_cmd("pnpm");
+            c.args(["root", "-g"]);
+            c
+        };
+        run_with_timeout(&mut cmd, QUICK_TIMEOUT)
+            .await
+            .ok()
+            .filter(|o| o.status.success())
+            .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+    };
+
+    if let Some(root) = &pnpm_root {
+        let openclaw_dir = std::path::PathBuf::from(root).join("openclaw");
+        if openclaw_dir.exists() {
+            return Some("pnpm".to_string());
+        }
+    }
+
+    None
+}
+
 /// Install OpenClaw using package managers with fallback.
 ///
-/// Tries pnpm first, then yarn, then npm.
-/// If one fails, automatically falls back to the next.
+/// On Windows, tries npm first (most reliable). Falls back to other managers silently.
+/// Only shows errors if ALL managers fail.
 /// Streams output as "install-output" Tauri events.
 #[tauri::command]
 pub async fn install_openclaw_script(app: tauri::AppHandle) -> Result<String, String> {
     let managers = detect_package_managers().await;
 
     if managers.is_empty() {
-        return Err("No package manager found (pnpm, yarn, or npm required)".to_string());
+        return Err("No package manager found (pnpm, yarn, or npm required). Install Node.js from https://nodejs.org".to_string());
     }
 
-    let _ = app.emit(
-        "install-output",
-        format!("Available package managers: {}", managers.join(", ")),
-    );
+    let _ = app.emit("install-output", "Installing OpenClaw...".to_string());
+
+    // Track failures for final error message
+    let mut failures: Vec<String> = Vec::new();
 
     for pkg_manager in &managers {
-        let _ = app.emit("install-output", format!("Trying {pkg_manager}..."));
-
         let install_args: Vec<&str> = match pkg_manager.as_str() {
             "pnpm" => vec!["add", "-g", "openclaw@latest"],
             "yarn" => vec!["global", "add", "openclaw@latest"],
@@ -212,10 +274,7 @@ pub async fn install_openclaw_script(app: tauri::AppHandle) -> Result<String, St
         let mut child = match child {
             Ok(c) => c,
             Err(e) => {
-                let _ = app.emit(
-                    "install-output",
-                    format!("[warn] Failed to start {pkg_manager}: {e}, trying next..."),
-                );
+                failures.push(format!("{pkg_manager}: failed to start ({e})"));
                 continue;
             }
         };
@@ -240,19 +299,23 @@ pub async fn install_openclaw_script(app: tauri::AppHandle) -> Result<String, St
             }
         });
 
-        let app_stderr = app.clone();
+        // Collect stderr silently — only surface on failure
         let stderr_task = tokio::spawn(async move {
+            let mut collected = String::new();
             let reader = tokio::io::BufReader::new(stderr);
             let mut lines = reader.lines();
             while let Ok(Some(line)) = lines.next_line().await {
                 if !line.trim().is_empty() {
-                    let _ = app_stderr.emit("install-output", format!("[warn] {line}"));
+                    collected.push_str(&line);
+                    collected.push('\n');
                 }
             }
+            collected
         });
 
         let status = child.wait().await;
-        let _ = tokio::join!(stdout_task, stderr_task);
+        let (_, stderr_output) = tokio::join!(stdout_task, stderr_task);
+        let stderr_text = stderr_output.unwrap_or_default();
 
         match status {
             Ok(s) if s.success() => {
@@ -269,114 +332,89 @@ pub async fn install_openclaw_script(app: tauri::AppHandle) -> Result<String, St
                         format!("OpenClaw {version} installed successfully via {pkg_manager}"),
                     );
                     return Ok(version);
-                } else {
-                    let _ = app.emit(
-                        "install-output",
-                        format!("[warn] {pkg_manager} reported success but openclaw not found, trying next..."),
-                    );
-                    continue;
                 }
+                // Reported success but binary not found
+                failures.push(format!(
+                    "{pkg_manager}: reported success but openclaw not found on PATH"
+                ));
+                continue;
             }
             Ok(s) => {
                 let exit_code = s.code().unwrap_or(-1);
-                let _ = app.emit(
-                    "install-output",
-                    format!(
-                        "[warn] {pkg_manager} failed with exit code {exit_code}, trying next..."
-                    ),
-                );
+                // Check for known error patterns
+                let reason = if stderr_text.contains("ENOENT") {
+                    "corrupted package cache — try clearing cache".to_string()
+                } else if stderr_text.contains("EACCES") || stderr_text.contains("permission denied")
+                {
+                    "permission denied — try running as administrator".to_string()
+                } else if stderr_text.contains("packageManager") {
+                    "packageManager field conflict in project config".to_string()
+                } else {
+                    format!("exit code {exit_code}")
+                };
+                failures.push(format!("{pkg_manager}: {reason}"));
                 continue;
             }
             Err(e) => {
-                let _ = app.emit(
-                    "install-output",
-                    format!("[warn] {pkg_manager} process error: {e}, trying next..."),
-                );
+                failures.push(format!("{pkg_manager}: process error ({e})"));
                 continue;
             }
         }
     }
 
-    Err("All package managers failed to install OpenClaw. Try running 'pnpm add -g openclaw@latest' or 'npm install -g openclaw@latest' manually.".to_string())
+    // All managers failed — build helpful error message
+    let tried = managers.join(", ");
+    let failure_details: String = failures
+        .iter()
+        .map(|f| format!("  - {f}"))
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    Err(format!(
+        "Failed to install OpenClaw. Tried: {tried}\n\nFailure details:\n{failure_details}\n\nTry running manually: npm install -g openclaw@latest"
+    ))
 }
 
 /// Uninstall OpenClaw, then reinstall a clean copy.
 ///
-/// Tries each package manager to remove, then reinstalls.
+/// Detects which package manager installed openclaw and uses that for removal.
+/// Falls back to trying all managers silently if detection fails.
 #[tauri::command]
 pub async fn reinstall_openclaw(app: tauri::AppHandle) -> Result<String, String> {
-    let managers = detect_package_managers().await;
-
-    if managers.is_empty() {
-        return Err("No package manager found (pnpm, yarn, or npm required)".to_string());
-    }
-
     let _ = app.emit(
         "install-output",
         "Removing existing OpenClaw installation...".to_string(),
     );
 
-    // Try to uninstall with each available manager
-    for pkg_manager in &managers {
-        let uninstall_args: Vec<&str> = match pkg_manager.as_str() {
+    // Try to detect which manager installed openclaw
+    let detected = detect_install_manager().await;
+
+    if let Some(ref manager) = detected {
+        let _ = app.emit(
+            "install-output",
+            format!("Detected install via {manager}, removing..."),
+        );
+        let uninstall_args: Vec<&str> = match manager.as_str() {
             "pnpm" => vec!["remove", "-g", "openclaw"],
             "yarn" => vec!["global", "remove", "openclaw"],
             "npm" => vec!["uninstall", "-g", "openclaw"],
-            _ => continue,
+            _ => vec!["uninstall", "-g", "openclaw"],
         };
 
-        let _ = app.emit(
-            "install-output",
-            format!("Trying: {pkg_manager} {}", uninstall_args.join(" ")),
-        );
+        let _ = run_package_manager(manager, &uninstall_args, &app, true).await;
+    } else {
+        // Detection failed — try all managers silently
+        let managers = detect_package_managers().await;
+        for manager in &managers {
+            let uninstall_args: Vec<&str> = match manager.as_str() {
+                "pnpm" => vec!["remove", "-g", "openclaw"],
+                "yarn" => vec!["global", "remove", "openclaw"],
+                "npm" => vec!["uninstall", "-g", "openclaw"],
+                _ => continue,
+            };
 
-        let child = if cfg!(target_os = "windows") {
-            let mut args = vec!["/c", pkg_manager.as_str()];
-            args.extend(&uninstall_args);
-            silent_cmd("cmd")
-                .args(&args)
-                .stdout(std::process::Stdio::piped())
-                .stderr(std::process::Stdio::piped())
-                .spawn()
-        } else {
-            silent_cmd(pkg_manager)
-                .args(&uninstall_args)
-                .stdout(std::process::Stdio::piped())
-                .stderr(std::process::Stdio::piped())
-                .spawn()
-        };
-
-        if let Ok(mut child) = child {
-            let stdout = child.stdout.take();
-            let stderr = child.stderr.take();
-            let app_clone = app.clone();
-
-            if let Some(stdout) = stdout {
-                let app_c = app_clone.clone();
-                tokio::spawn(async move {
-                    let reader = tokio::io::BufReader::new(stdout);
-                    let mut lines = reader.lines();
-                    while let Ok(Some(line)) = lines.next_line().await {
-                        if !line.trim().is_empty() {
-                            let _ = app_c.emit("install-output", &line);
-                        }
-                    }
-                });
-            }
-            if let Some(stderr) = stderr {
-                tokio::spawn(async move {
-                    let reader = tokio::io::BufReader::new(stderr);
-                    let mut lines = reader.lines();
-                    while let Ok(Some(line)) = lines.next_line().await {
-                        if !line.trim().is_empty() {
-                            let _ = app_clone.emit("install-output", format!("[warn] {line}"));
-                        }
-                    }
-                });
-            }
-
-            let _ = child.wait().await;
-            // Uninstall attempt done — even if it fails, try reinstall
+            // Silent — don't show errors for "not installed here" cases
+            let _ = run_package_manager(manager, &uninstall_args, &app, true).await;
         }
     }
 
@@ -387,6 +425,79 @@ pub async fn reinstall_openclaw(app: tauri::AppHandle) -> Result<String, String>
 
     // Now do a clean install
     install_openclaw_script(app).await
+}
+
+/// Run a package manager command, optionally suppressing error output.
+///
+/// When `silent` is true, stderr is collected but not emitted to the frontend.
+/// Returns Ok(output) on success, Err(reason) on failure.
+async fn run_package_manager(
+    manager: &str,
+    args: &[&str],
+    app: &tauri::AppHandle,
+    silent: bool,
+) -> Result<std::process::Output, String> {
+    let child = if cfg!(target_os = "windows") {
+        let mut cmd_args = vec!["/c", manager];
+        cmd_args.extend(args);
+        silent_cmd("cmd")
+            .args(&cmd_args)
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+    } else {
+        silent_cmd(manager)
+            .args(args)
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+    };
+
+    let mut child = child.map_err(|e| format!("Failed to start {manager}: {e}"))?;
+
+    let stdout = child.stdout.take();
+    let stderr = child.stderr.take();
+    let app_clone = app.clone();
+
+    // Always capture stdout
+    if let Some(stdout) = stdout {
+        let app_c = app_clone.clone();
+        tokio::spawn(async move {
+            let reader = tokio::io::BufReader::new(stdout);
+            let mut lines = reader.lines();
+            while let Ok(Some(line)) = lines.next_line().await {
+                if !line.trim().is_empty() && !silent {
+                    let _ = app_c.emit("install-output", &line);
+                }
+            }
+        });
+    }
+
+    // Capture stderr — emit only if not silent
+    if let Some(stderr) = stderr {
+        let app_c = app_clone;
+        tokio::spawn(async move {
+            let reader = tokio::io::BufReader::new(stderr);
+            let mut lines = reader.lines();
+            while let Ok(Some(line)) = lines.next_line().await {
+                if !line.trim().is_empty() && !silent {
+                    let _ = app_c.emit("install-output", format!("[warn] {line}"));
+                }
+            }
+        });
+    }
+
+    let status = child
+        .wait()
+        .await
+        .map_err(|e| format!("{manager} process error: {e}"))?;
+
+    // Build a minimal Output for status checking
+    Ok(std::process::Output {
+        status,
+        stdout: Vec::new(),
+        stderr: Vec::new(),
+    })
 }
 
 // ─── Private helpers ──────────────────────────────────────────────
