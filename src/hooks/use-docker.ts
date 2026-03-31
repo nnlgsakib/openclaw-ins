@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { invoke } from "@tauri-apps/api/core"
 
 export interface DockerStatus {
@@ -52,5 +52,35 @@ export function useDockerInfo() {
     enabled: false, // Only fetch when explicitly requested or Docker is running
     staleTime: 60_000,
     retry: 1,
+  })
+}
+
+/**
+ * Check if the sandbox Docker image exists locally.
+ */
+export function useSandboxImageExists() {
+  return useQuery<boolean>({
+    queryKey: ["docker", "sandbox-image-exists"],
+    queryFn: async () => {
+      return await invoke<boolean>("check_sandbox_image_exists")
+    },
+    retry: 1,
+  })
+}
+
+/**
+ * Pull the sandbox Docker image. Use mutation for proper loading/error states.
+ */
+export function usePullSandboxImage() {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: async () => {
+      return await invoke<boolean>("pull_sandbox_image")
+    },
+    onSuccess: () => {
+      // Invalidate the exists query so UI updates
+      queryClient.invalidateQueries({ queryKey: ["docker", "sandbox-image-exists"] })
+    },
   })
 }

@@ -1,7 +1,9 @@
 import React from "react";
 import { motion } from "motion/react";
-import { Shield, ShieldAlert, ShieldOff, FolderOpen, Container, Terminal, Box, Plus, X } from "lucide-react";
+import { Shield, ShieldAlert, ShieldOff, FolderOpen, Container, Terminal, Box, Plus, X, Monitor, Loader2, Download } from "lucide-react";
 import { useWizardStore } from "@/stores/use-wizard-store";
+import { useSandboxImageExists, usePullSandboxImage } from "@/hooks/use-docker";
+import { listen } from "@tauri-apps/api/event";
 import { cn } from "@/lib/utils";
 import { open } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
@@ -78,7 +80,7 @@ const WORKSPACE_ACCESS: {
 ];
 
 const SANDBOX_BACKENDS: {
-  value: "docker" | "ssh" | "openshell";
+  value: "docker" | "ssh" | "openshell" | "native";
   label: string;
   description: string;
   icon: typeof Container;
@@ -103,6 +105,12 @@ const SANDBOX_BACKENDS: {
     description: "OpenClaw's managed shell sandbox. Requires OpenShell plugin.",
     icon: Box,
   },
+  {
+    value: "native",
+    label: "Local",
+    description: "Run agents directly on host — no Docker, fastest but least isolated.",
+    icon: Monitor,
+  },
 ];
 
 const DOCKER_NETWORKS: {
@@ -113,6 +121,70 @@ const DOCKER_NETWORKS: {
   { value: "none", label: "None", description: "No network access — most secure (Recommended)" },
   { value: "bridge", label: "Bridge", description: "Isolated network — can access internet" },
 ];
+
+function SandboxImageCheck() {
+  const { data: imageExists, isLoading: checking } = useSandboxImageExists();
+  const { isPending: pulling, mutate: pullImage } = usePullSandboxImage();
+  const [pullLog, setPullLog] = React.useState<string[]>([]);
+  const [pullComplete, setPullComplete] = React.useState(false);
+
+  React.useEffect(() => {
+    const unlisten = listen<string>("sandbox-pull-output", (event) => {
+      setPullLog((prev) => [...prev.slice(-20), event.payload]); // Keep last 20 lines
+    });
+    return () => { unlisten.then(fn => fn()); };
+  }, []);
+
+  React.useEffect(() => {
+    if (imageExists) {
+      setPullComplete(true);
+    }
+  }, [imageExists]);
+
+  const handlePull = () => {
+    setPullLog([]);
+    setPullComplete(false);
+    pullImage();
+  };
+
+  if (checking) {
+    return (
+      <div className="flex items-center gap-2 rounded-lg border border-border bg-accent/30 p-4">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        <p className="text-sm">Checking sandbox image...</p>
+      </div>
+    );
+  }
+
+  if (pullComplete || imageExists) {
+    return null; // Don't show if image exists
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="rounded-lg border border-yellow-500/50 bg-yellow-500/10 p-4">
+        <p className="text-sm font-medium text-yellow-600">Sandbox Image Required</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          The openclaw-sandbox image is not found. Pull it now or skip Docker sandboxing.
+        </p>
+        <button
+          onClick={handlePull}
+          disabled={pulling}
+          className="mt-3 flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+        >
+          {pulling ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+          {pulling ? "Pulling..." : "Get Sandbox Image"}
+        </button>
+      </div>
+
+      {pullLog.length > 0 && (
+        <pre className="max-h-32 overflow-auto rounded-md border border-border bg-black p-2 text-xs text-green-400">
+{pullLog.join("\n")}
+        </pre>
+      )}
+    </div>
+  );
+}
 
 export function SandboxStep() {
   const {
@@ -304,6 +376,11 @@ export function SandboxStep() {
           ))}
         </div>
       </div>
+
+      {/* Sandbox Image Check - only for Docker backend */}
+      {sandboxBackend === "docker" && (
+        <SandboxImageCheck />
+      )}
 
       {/* Docker-specific settings */}
       {sandboxBackend === "docker" && (

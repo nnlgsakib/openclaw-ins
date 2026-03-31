@@ -244,3 +244,80 @@ async fn check_docker_windows() -> Result<DockerStatus, AppError> {
         wsl_backend: wsl_running,
     })
 }
+
+/// Check if the sandbox Docker image exists locally.
+#[tauri::command]
+pub async fn check_sandbox_image_exists() -> Result<bool, AppError> {
+    let output = silent_cmd("docker")
+        .args(["image", "inspect", "openclaw-sandbox:bookworm-slim"])
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .await;
+
+    match output {
+        Ok(status) => Ok(status.success()),
+        Err(_) => Ok(false),
+    }
+}
+
+/// Pull the sandbox Docker image with real-time progress.
+#[tauri::command]
+pub async fn pull_sandbox_image(app_handle: tauri::AppHandle) -> Result<bool, AppError> {
+    let _ = crate::install::progress::emit_progress(
+        &app_handle,
+        "pulling_sandbox",
+        50,
+        "Pulling openclaw-sandbox image...",
+    );
+
+    let mut cmd = silent_cmd("docker");
+    cmd.args(["pull", "openclaw-sandbox:bookworm-slim"]);
+    cmd.stdout(std::process::Stdio::piped());
+    cmd.stderr(std::process::Stdio::piped());
+
+    match cmd.spawn() {
+        Ok(mut child) => {
+            use tokio::io::{AsyncBufReadExt, BufReader};
+
+            let stdout = child.stdout.take();
+            let stderr = child.stderr.take();
+
+            if let Some(stdout) = stdout {
+                let mut reader = BufReader::new(stdout).lines();
+                while let Ok(Some(line)) = reader.next_line().await {
+                    let _ = tauri::Emitter::emit(&app_handle, "sandbox-pull-output", line);
+                }
+            }
+
+            let status = child.wait().await;
+
+            if status.is_ok() && status.unwrap().success() {
+                let _ = crate::install::progress::emit_progress(
+                    &app_handle,
+                    "pulling_sandbox",
+                    100,
+                    "Sandbox image pulled successfully!",
+                );
+                Ok(true)
+            } else {
+                let _ = crate::install::progress::emit_progress(
+                    &app_handle,
+                    "pulling_sandbox",
+                    100,
+                    "Failed to pull sandbox image",
+                );
+                Ok(false)
+            }
+        }
+        Err(e) => {
+            let _ = crate::install::progress::emit_progress(
+                &app_handle,
+                "pulling_sandbox",
+                100,
+                &format!("Error pulling sandbox: {}", e),
+            );
+            Ok(false)
+        }
+    }
+}

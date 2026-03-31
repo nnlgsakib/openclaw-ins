@@ -35,6 +35,8 @@ pub fn run() {
             commands::docker::check_docker_health,
             commands::docker::get_docker_info,
             commands::docker::detect_docker,
+            commands::docker::check_sandbox_image_exists,
+            commands::docker::pull_sandbox_image,
             commands::system_check::run_system_check,
             commands::install::install_openclaw,
             commands::install::clean_install_dir,

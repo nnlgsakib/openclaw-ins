@@ -37,7 +37,7 @@ export interface ChannelField {
 export type SandboxMode = "off" | "non-main" | "all";
 export type SandboxScope = "session" | "agent" | "shared";
 export type WorkspaceAccess = "none" | "ro" | "rw";
-export type SandboxBackend = "docker" | "ssh" | "openshell";
+export type SandboxBackend = "docker" | "ssh" | "openshell" | "native";
 export type DockerNetwork = "none" | "bridge" | "host";
 export type DmPolicy = "pairing" | "allowlist" | "open" | "disabled";
 
