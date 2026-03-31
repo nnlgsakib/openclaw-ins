@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: UX Polish & Channels
 status: executing
-last_updated: "2026-03-31T03:09:08.141Z"
+last_updated: "2026-03-31T12:00:00.000Z"
 last_activity: 2026-03-31
 progress:
   total_phases: 11
   completed_phases: 7
   total_plans: 35
-  completed_plans: 23
+  completed_plans: 24
 ---
 
 # STATE: ClawStation
@@ -22,9 +22,9 @@ progress:
 
 ## Current Position
 
-Phase: 18 (docker-sandbox-integration) — EXECUTING
+Phase: 18 (docker-sandbox-integration) — COMPLETE
 Plan: 3 of 3
-Status: Ready to execute
+Status: All plans executed
 Last activity: 2026-03-31
 
 ## Performance Metrics
@@ -70,6 +70,7 @@ Last activity: 2026-03-31
 | Phase 17-gateway-startup-ux-fix P02 | 4min | 4 tasks | 2 files |
 | Phase 18-docker-sandbox-integration P01 | 8min | 2 tasks | 2 files |
 | Phase 18-docker-sandbox-integration P02 | 5min | 1 tasks | 1 files |
+| Phase 18-docker-sandbox-integration P03 | 8min | 1 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -126,6 +127,7 @@ Last activity: 2026-03-31
 - Animation utilities at src/lib/animation.ts (not utils/ dir) — centralized timing/spring presets, CSS transition helper
 - motion v12.38.0 as Framer Motion package (modern import path: motion/react) — gesture props (whileHover/whileTap/whileFocus) for Button micro-interactions
 - Docker log streaming via Tauri events (docker-log-output channel) — real-time terminal display replacing fake progress
+- Sandbox setup in Docker install flow: image existence check via docker image inspect, graceful degradation on failure, progress via sandbox-setup-progress channel
 - Auto-scroll pause threshold: 200px from bottom — standard terminal UX for reading historical output
 - AnimatePresence at router level (mode='wait') wrapping Routes with motion.div keyed by location.pathname — single point of control for all page transitions
 - Docker layer progress events via dedicated Tauri channel (docker-layer-progress) — per-layer ID tracking with update-or-add semantics
@@ -191,6 +193,6 @@ Last activity: 2026-03-31
 
 ## Session Continuity
 
-**Last action:** 2026-03-29 - Completed Phase 16 OpenClaw full integration, commit ba2b0aa
-**Next action:** Ready to re-tag and release with full provider/channel support
-**Files to review:** `.planning/phases/16-openclaw-full-integration/16-VERIFICATION.md`
+**Last action:** 2026-03-31 - Completed Phase 18 Plan 03: integrate sandbox setup scripts in Docker installation, commit e0794b3
+**Next action:** Phase 18 complete (3/3 plans). Ready for Phase 12 Gateway Integration or Phase 15 Production Build Fixes
+**Files to review:** `.planning/phases/18-docker-sandbox-integration/18-03-SUMMARY.md`
