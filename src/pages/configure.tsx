@@ -9,6 +9,7 @@ import { SandboxSection } from "@/components/config/sandbox-section";
 import { ToolsSection } from "@/components/config/tools-section";
 import { AgentsSection } from "@/components/config/agents-section";
 import { DynamicConfigSection } from "@/components/config/dynamic-config-section";
+import { JsonEditor } from "@/components/config/json-editor";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +25,7 @@ import {
   Wrench,
   ChevronDown,
   ChevronUp,
+  FileJson,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -40,6 +42,7 @@ export function Configure() {
   const schema = useConfigSchema();
   const [isSaving, setIsSaving] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [mode, setMode] = useState<"ui" | "json">("ui");
 
   const baseHash =
     ((gatewayConfig as Record<string, unknown> | undefined)?.baseHash as string) ?? "";
@@ -93,6 +96,38 @@ export function Configure() {
     }
   };
 
+  const handleJsonSave = async (parsed: Record<string, unknown>) => {
+    // Update store — this sets isDirty: false, so we manually trigger save
+    useConfigStore.getState().setConfig(parsed);
+    // Run the save flow directly (bypass isDirty check since we just replaced config)
+    setIsSaving(true);
+    try {
+      const validation = await validateConfig.mutateAsync(parsed);
+      if (!validation.valid && validation.errors.length > 0) {
+        const errorMessages = validation.errors
+          .map((e) => `${e.field}: ${e.message}`)
+          .join(", ");
+        showError(new Error(errorMessages));
+        setIsSaving(false);
+        return;
+      }
+      if (gatewayConnected && baseHash) {
+        const raw = JSON.stringify(parsed);
+        await gatewayPatch.mutateAsync({ raw, baseHash });
+        markClean();
+        toast.success("Configuration applied via Gateway hot-reload");
+      } else {
+        await saveConfig.mutateAsync(parsed);
+        markClean();
+        toast.success("Configuration saved (will apply on next Gateway start)");
+      }
+    } catch (err) {
+      showError(err as Error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const advancedSections = schema.filter((s) => s.category === "advanced");
   const infrastructureSections = schema.filter((s) => s.category === "infrastructure");
   const coreSections = schema.filter(
@@ -132,6 +167,34 @@ export function Configure() {
         </div>
       </div>
 
+      {/* Mode toggle */}
+      <div className="flex gap-1 p-1 bg-muted rounded-lg w-fit">
+        <button
+          onClick={() => setMode("ui")}
+          className={cn(
+            "px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
+            mode === "ui"
+              ? "bg-background shadow text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <Settings className="mr-1.5 h-3.5 w-3.5 inline-block" />
+          UI Mode
+        </button>
+        <button
+          onClick={() => setMode("json")}
+          className={cn(
+            "px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
+            mode === "json"
+              ? "bg-background shadow text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <FileJson className="mr-1.5 h-3.5 w-3.5 inline-block" />
+          JSON Mode
+        </button>
+      </div>
+
       {/* Gateway status banner */}
       {!gatewayConnected && (
         <Alert className="border-warning/30 bg-warning/5">
@@ -146,8 +209,13 @@ export function Configure() {
       {/* Loading state */}
       {isLoading && <ConfigureSkeleton />}
 
-      {/* Configuration sections */}
-      {!isLoading && (
+      {/* JSON mode */}
+      {!isLoading && mode === "json" && (
+        <JsonEditor onSave={handleJsonSave} isSaving={isSaving} />
+      )}
+
+      {/* Configuration sections (UI mode) */}
+      {!isLoading && mode === "ui" && (
         <div className="space-y-8">
           {/* Core sections with icons */}
           <SectionGroup
