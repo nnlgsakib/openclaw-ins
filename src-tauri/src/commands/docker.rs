@@ -267,24 +267,17 @@ pub async fn check_sandbox_image_exists() -> Result<bool, AppError> {
 /// This tries, in order:
 /// 1. Run `scripts/sandbox-setup.sh` if it exists in the repo
 /// 2. Build from existing `Dockerfile.sandbox` in the repo
-/// 3. Create `Dockerfile.sandbox` inline, then build
+/// 3. Create `Dockerfile.sandbox` inline, then build (works without repo)
 #[tauri::command]
 pub async fn pull_sandbox_image(app_handle: tauri::AppHandle) -> Result<bool, AppError> {
     let image = "openclaw-sandbox:bookworm-slim";
-    let repo_dir = dirs::home_dir()
+    let config_dir = dirs::home_dir()
         .ok_or_else(|| AppError::Internal {
             message: "Cannot find home directory".into(),
             suggestion: "Ensure HOME environment variable is set".into(),
         })?
-        .join(".openclaw")
-        .join("repo");
-
-    if !repo_dir.exists() {
-        return Err(AppError::InstallationFailed {
-            reason: "OpenClaw repo not found at ~/.openclaw/repo. Run the Docker installation first.".into(),
-            suggestion: "Complete the Docker installation to clone the OpenClaw repository, then try again.".into(),
-        });
-    }
+        .join(".openclaw");
+    let repo_dir = config_dir.join("repo");
 
     crate::install::progress::emit_progress(
         &app_handle,
@@ -293,47 +286,59 @@ pub async fn pull_sandbox_image(app_handle: tauri::AppHandle) -> Result<bool, Ap
         "Building openclaw-sandbox image...",
     );
 
-    let sandbox_script = repo_dir.join("scripts").join("sandbox-setup.sh");
-    let dockerfile = repo_dir.join("Dockerfile.sandbox");
+    // If repo exists, try script then Dockerfile from repo
+    if repo_dir.exists() {
+        let sandbox_script = repo_dir.join("scripts").join("sandbox-setup.sh");
+        let dockerfile = repo_dir.join("Dockerfile.sandbox");
 
-    if sandbox_script.exists() {
-        // Option 1: Run sandbox-setup.sh
-        crate::install::progress::emit_progress(
-            &app_handle,
-            "pulling_sandbox",
-            30,
-            "Running sandbox setup script...",
-        );
-        run_build_command(
-            &app_handle,
-            silent_cmd("bash").arg(&sandbox_script).current_dir(&repo_dir),
-        )
-        .await
-    } else if dockerfile.exists() {
-        // Option 2: Build from existing Dockerfile.sandbox
-        crate::install::progress::emit_progress(
-            &app_handle,
-            "pulling_sandbox",
-            30,
-            "Building from Dockerfile.sandbox...",
-        );
-        run_build_command(
-            &app_handle,
-            silent_cmd("docker")
-                .args(["build", "-t", image, "-f", "Dockerfile.sandbox", "."])
-                .current_dir(&repo_dir),
-        )
-        .await
-    } else {
-        // Option 3: Create Dockerfile.sandbox inline, then build
-        crate::install::progress::emit_progress(
-            &app_handle,
-            "pulling_sandbox",
-            20,
-            "Creating sandbox Dockerfile...",
-        );
+        if sandbox_script.exists() {
+            crate::install::progress::emit_progress(
+                &app_handle,
+                "pulling_sandbox",
+                30,
+                "Running sandbox setup script...",
+            );
+            return run_build_command(
+                &app_handle,
+                silent_cmd("bash").arg(&sandbox_script).current_dir(&repo_dir),
+            )
+            .await;
+        }
 
-        let dockerfile_content = r#"FROM node:20-slim
+        if dockerfile.exists() {
+            crate::install::progress::emit_progress(
+                &app_handle,
+                "pulling_sandbox",
+                30,
+                "Building from Dockerfile.sandbox...",
+            );
+            return run_build_command(
+                &app_handle,
+                silent_cmd("docker")
+                    .args(["build", "-t", image, "-f", "Dockerfile.sandbox", "."])
+                    .current_dir(&repo_dir),
+            )
+            .await;
+        }
+    }
+
+    // No repo or no script/Dockerfile — create a temp Dockerfile and build
+    let build_dir = config_dir.join(".sandbox-build");
+    tokio::fs::create_dir_all(&build_dir)
+        .await
+        .map_err(|e| AppError::InstallationFailed {
+            reason: format!("Failed to create build directory: {e}"),
+            suggestion: "Check write permissions for ~/.openclaw".into(),
+        })?;
+
+    crate::install::progress::emit_progress(
+        &app_handle,
+        "pulling_sandbox",
+        20,
+        "Creating sandbox Dockerfile...",
+    );
+
+    let dockerfile_content = r#"FROM node:20-slim
 
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
@@ -347,28 +352,28 @@ USER node
 CMD ["/bin/bash"]
 "#;
 
-        tokio::fs::write(&dockerfile, dockerfile_content)
-            .await
-            .map_err(|e| AppError::InstallationFailed {
-                reason: format!("Failed to create Dockerfile.sandbox: {e}"),
-                suggestion: "Check write permissions for ~/.openclaw/repo".into(),
-            })?;
-
-        crate::install::progress::emit_progress(
-            &app_handle,
-            "pulling_sandbox",
-            30,
-            "Building sandbox image...",
-        );
-
-        run_build_command(
-            &app_handle,
-            silent_cmd("docker")
-                .args(["build", "-t", image, "-f", "Dockerfile.sandbox", "."])
-                .current_dir(&repo_dir),
-        )
+    let dockerfile_path = build_dir.join("Dockerfile.sandbox");
+    tokio::fs::write(&dockerfile_path, dockerfile_content)
         .await
-    }
+        .map_err(|e| AppError::InstallationFailed {
+            reason: format!("Failed to create Dockerfile: {e}"),
+            suggestion: "Check write permissions for ~/.openclaw".into(),
+        })?;
+
+    crate::install::progress::emit_progress(
+        &app_handle,
+        "pulling_sandbox",
+        30,
+        "Building sandbox image...",
+    );
+
+    run_build_command(
+        &app_handle,
+        silent_cmd("docker")
+            .args(["build", "-t", image, "-f", "Dockerfile.sandbox", "."])
+            .current_dir(&build_dir),
+    )
+    .await
 }
 
 /// Helper: spawn a build command, stream stdout/stderr as sandbox-pull-output events,
