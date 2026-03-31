@@ -201,9 +201,10 @@ Last activity: 2026-03-31
 | 260331-kw5 | Fix sandbox build works without openclaw repo | 2026-03-31 | 43b15f5 | [260331-kw5-fix-sandbox-build-failing-when-openclaw-](./quick/260331-kw5-fix-sandbox-build-failing-when-openclaw-/) |
 | 260331-n9g | Fix settings page update buttons showing generic error instead of actual message | 2026-03-31 | 15f4462 | [260331-n9g-fix-settings-page-update-buttons-crashin](./quick/260331-n9g-fix-settings-page-update-buttons-crashin/) |
 | 260331-ngt | Fix native install update detection and error messages | 2026-03-31 | 6a6b9ec | [260331-ngt-fix-native-install-update-detection-and-](./quick/260331-ngt-fix-native-install-update-detection-and-) |
+| 260331-oh6 | Fix native install/reinstall showing cascading package manager errors | 2026-03-31 | af842a0 | [260331-oh6-investigate-why-check-your-internet-conn](./quick/260331-oh6-investigate-why-check-your-internet-conn/) |
 
 ## Session Continuity
 
-**Last action:** 2026-03-31 — Completed quick task 260331-ngt: native install update detection fix
+**Last action:** 2026-03-31 — Completed quick task 260331-oh6: fix native install showing clean output instead of cascading package manager errors
 **Next action:** Human review of Wave 3 integration checkpoint. Then Phase 12 Gateway Integration or Phase 15 Production Build Fixes
 **Files to review:** `.planning/phases/19-configure-page-dual-mode/19-03-SUMMARY.md`
