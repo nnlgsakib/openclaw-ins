@@ -193,9 +193,10 @@ Last activity: 2026-03-31
 | 260331-g5h | Publish the current branch | 2026-03-31 | 2c3072f | [260331-g5h-publish-the-current-branch](./quick/260331-g5h-publish-the-current-branch/) |
 | 260331-i16 | Fix 502 NATS no-responders error with provider error classification and user guidance | 2026-03-31 | 7910374 | [260331-i16-fix-502-nats-no-responders-error-when-se](./quick/260331-i16-fix-502-nats-no-responders-error-when-se/) |
 | 260331-jpt | Fix sandbox image pull button not staying in loading state during pull | 2026-03-31 | b187853 | [260331-jpt-fix-sandbox-image-pull-button-not-stayin](./quick/260331-jpt-fix-sandbox-image-pull-button-not-stayin/) |
+| 260331-kgz | Fix sandbox image build locally instead of pulling from registry | 2026-03-31 | 95ac416 | [260331-kgz-fix-sandbox-image-pull-failing-with-acce](./quick/260331-kgz-fix-sandbox-image-pull-failing-with-acce/) |
 
 ## Session Continuity
 
-**Last action:** 2026-03-31 - Completed quick task 260331-jpt: sandbox image pull button loading state fix
+**Last action:** 2026-03-31 - Completed quick task 260331-kgz: sandbox image build locally instead of pulling
 **Next action:** Phase 18 complete (3/3 plans). Ready for Phase 12 Gateway Integration or Phase 15 Production Build Fixes
 **Files to review:** `.planning/phases/18-docker-sandbox-integration/18-03-SUMMARY.md`
