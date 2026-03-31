@@ -455,12 +455,7 @@ pub async fn docker_install(
                         Ok(child) => {
                             stream_command_output(app_handle, child, "sandbox-setup-progress")
                                 .await;
-                            emit_progress(
-                                app_handle,
-                                "sandbox_setup",
-                                98,
-                                "Sandbox image ready.",
-                            );
+                            emit_progress(app_handle, "sandbox_setup", 98, "Sandbox image ready.");
                         }
                         Err(e) => {
                             // Graceful degradation — don't fail the install
@@ -512,12 +507,7 @@ CMD ["/bin/bash"]
                         });
                     }
 
-                    emit_progress(
-                        app_handle,
-                        "sandbox_setup",
-                        93,
-                        "Building sandbox image...",
-                    );
+                    emit_progress(app_handle, "sandbox_setup", 93, "Building sandbox image...");
 
                     let mut cmd = silent_cmd("docker");
                     cmd.args(["build", "-t", image, "-f", "Dockerfile.sandbox", "."]);
@@ -529,12 +519,7 @@ CMD ["/bin/bash"]
                         Ok(child) => {
                             stream_command_output(app_handle, child, "sandbox-setup-progress")
                                 .await;
-                            emit_progress(
-                                app_handle,
-                                "sandbox_setup",
-                                98,
-                                "Sandbox image ready.",
-                            );
+                            emit_progress(app_handle, "sandbox_setup", 98, "Sandbox image ready.");
                         }
                         Err(e) => {
                             emit_progress(

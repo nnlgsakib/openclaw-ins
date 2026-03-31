@@ -264,7 +264,7 @@ pub async fn check_sandbox_image_exists() -> Result<bool, AppError> {
 /// Pull the sandbox Docker image with real-time progress.
 #[tauri::command]
 pub async fn pull_sandbox_image(app_handle: tauri::AppHandle) -> Result<bool, AppError> {
-    let _ = crate::install::progress::emit_progress(
+    crate::install::progress::emit_progress(
         &app_handle,
         "pulling_sandbox",
         50,
@@ -281,7 +281,7 @@ pub async fn pull_sandbox_image(app_handle: tauri::AppHandle) -> Result<bool, Ap
             use tokio::io::{AsyncBufReadExt, BufReader};
 
             let stdout = child.stdout.take();
-            let stderr = child.stderr.take();
+            let _stderr = child.stderr.take();
 
             if let Some(stdout) = stdout {
                 let mut reader = BufReader::new(stdout).lines();
@@ -293,7 +293,7 @@ pub async fn pull_sandbox_image(app_handle: tauri::AppHandle) -> Result<bool, Ap
             let status = child.wait().await;
 
             if status.is_ok() && status.unwrap().success() {
-                let _ = crate::install::progress::emit_progress(
+                crate::install::progress::emit_progress(
                     &app_handle,
                     "pulling_sandbox",
                     100,
@@ -301,7 +301,7 @@ pub async fn pull_sandbox_image(app_handle: tauri::AppHandle) -> Result<bool, Ap
                 );
                 Ok(true)
             } else {
-                let _ = crate::install::progress::emit_progress(
+                crate::install::progress::emit_progress(
                     &app_handle,
                     "pulling_sandbox",
                     100,
@@ -311,7 +311,7 @@ pub async fn pull_sandbox_image(app_handle: tauri::AppHandle) -> Result<bool, Ap
             }
         }
         Err(e) => {
-            let _ = crate::install::progress::emit_progress(
+            crate::install::progress::emit_progress(
                 &app_handle,
                 "pulling_sandbox",
                 100,

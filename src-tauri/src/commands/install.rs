@@ -143,9 +143,6 @@ mod tests {
             Some("openclaw-sandbox:bookworm-slim".into())
         );
         assert_eq!(sandbox.docker_network, Some("none".into()));
-        assert_eq!(
-            sandbox.docker_binds,
-            Some(vec!["/tmp:/tmp".into()])
-        );
+        assert_eq!(sandbox.docker_binds, Some(vec!["/tmp:/tmp".into()]));
     }
 }

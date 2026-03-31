@@ -162,13 +162,15 @@ pub async fn validate_config(
                         // Backend-specific validation
                         if backend_str == "ssh" {
                             if let Some(ssh) = sandbox.get("ssh") {
-                                if ssh.get("target").is_none_or(|t| {
-                                    t.as_str().is_none_or(|s| s.trim().is_empty())
-                                }) {
+                                if ssh
+                                    .get("target")
+                                    .is_none_or(|t| t.as_str().is_none_or(|s| s.trim().is_empty()))
+                                {
                                     errors.push(ValidationError {
                                         field: "agents.defaults.sandbox.ssh.target".into(),
-                                        message: "SSH backend requires a target host (e.g., 'user@host')"
-                                            .into(),
+                                        message:
+                                            "SSH backend requires a target host (e.g., 'user@host')"
+                                                .into(),
                                     });
                                 }
                             } else {
