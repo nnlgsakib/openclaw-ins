@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useConfig, useSaveConfig, useValidateConfig } from "@/hooks/use-config";
 import { useGatewayConfig, useGatewayConfigPatch } from "@/hooks/use-gateway";
 import { useGatewayStore } from "@/stores/use-gateway-store";
@@ -26,11 +27,13 @@ import {
   ChevronDown,
   ChevronUp,
   FileJson,
+  RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 export function Configure() {
+  const navigate = useNavigate();
   const gatewayConnected = useGatewayStore((s) => s.connected);
   const { data: gatewayConfig } = useGatewayConfig();
   const gatewayPatch = useGatewayConfigPatch();
@@ -94,6 +97,40 @@ export function Configure() {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleSaveAndRestart = async () => {
+    // Save config first if dirty
+    if (isDirty) {
+      setIsSaving(true);
+      try {
+        const validation = await validateConfig.mutateAsync(storeConfig);
+        if (!validation.valid && validation.errors.length > 0) {
+          const errorMessages = validation.errors
+            .map((e) => `${e.field}: ${e.message}`)
+            .join(", ");
+          showError(new Error(errorMessages));
+          setIsSaving(false);
+          return;
+        }
+        if (gatewayConnected && baseHash) {
+          const raw = JSON.stringify(storeConfig);
+          await gatewayPatch.mutateAsync({ raw, baseHash });
+          markClean();
+        } else {
+          await saveConfig.mutateAsync(storeConfig);
+          markClean();
+        }
+      } catch (err) {
+        showError(err as Error);
+        setIsSaving(false);
+        return;
+      }
+      setIsSaving(false);
+    }
+    // Set pending restart flag and navigate
+    useGatewayStore.getState().setPendingRestart(true);
+    navigate("/monitor");
   };
 
   const handleJsonSave = async (parsed: Record<string, unknown>) => {
@@ -164,6 +201,16 @@ export function Configure() {
             )}
             {isSaving ? "Saving..." : "Save Changes"}
           </Button>
+          {gatewayConnected && (
+            <Button variant="outline" onClick={handleSaveAndRestart} disabled={isSaving}>
+              {isSaving ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <RotateCcw className="mr-2 h-4 w-4" />
+              )}
+              {isSaving ? "Saving..." : "Save & Restart"}
+            </Button>
+          )}
         </div>
       </div>
 

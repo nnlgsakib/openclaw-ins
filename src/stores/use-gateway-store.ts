@@ -8,6 +8,7 @@ interface GatewayState {
   startupPhase: GatewayStartupPhase;
   error: string | null;
   reconnectAttempts: number;
+  pendingRestart: boolean;
 
   setConnected: () => void;
   setDisconnected: () => void;
@@ -15,6 +16,7 @@ interface GatewayState {
   setStartupPhase: (phase: GatewayStartupPhase) => void;
   setError: (error: string) => void;
   incrementReconnect: () => void;
+  setPendingRestart: (value: boolean) => void;
   reset: () => void;
 }
 
@@ -24,6 +26,7 @@ export const useGatewayStore = create<GatewayState>((set) => ({
   startupPhase: null,
   error: null,
   reconnectAttempts: 0,
+  pendingRestart: false,
 
   setConnected: () =>
     set({ connected: true, connecting: false, startupPhase: 'ready', error: null, reconnectAttempts: 0 }),
@@ -34,6 +37,7 @@ export const useGatewayStore = create<GatewayState>((set) => ({
   setError: (error) => set({ connected: false, connecting: false, startupPhase: 'failed', error }),
   incrementReconnect: () =>
     set((s) => ({ reconnectAttempts: s.reconnectAttempts + 1 })),
+  setPendingRestart: (value) => set({ pendingRestart: value }),
   reset: () =>
     set({
       connected: false,
@@ -41,5 +45,6 @@ export const useGatewayStore = create<GatewayState>((set) => ({
       startupPhase: null,
       error: null,
       reconnectAttempts: 0,
+      pendingRestart: false,
     }),
 }));

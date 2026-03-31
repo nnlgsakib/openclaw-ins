@@ -41,6 +41,22 @@ export function Monitor() {
   const [gatewayVersion, setGatewayVersion] = useState<string | null>(null);
   const logsEndRef = useRef<HTMLDivElement>(null);
 
+  const handleAction = async (action: "start" | "stop" | "restart") => {
+    setLoading(action);
+    try {
+      if (action === "start") await start();
+      else if (action === "stop") await stop();
+      else await restart();
+      toast.success(
+        `Gateway ${action === "start" ? "started" : action === "stop" ? "stopped" : "restarted"}`
+      );
+    } catch (e) {
+      toast.error(`Failed: ${e}`);
+    } finally {
+      setLoading(null);
+    }
+  };
+
   // Check gateway status on mount
   useEffect(() => {
     if (connected) {
@@ -51,6 +67,19 @@ export function Monitor() {
       });
     }
   }, [connected]);
+
+  // Auto-trigger restart if arriving from configure page
+  useEffect(() => {
+    const { pendingRestart } = useGatewayStore.getState();
+    if (pendingRestart) {
+      useGatewayStore.getState().setPendingRestart(false);
+      // Small delay to let the page render
+      const timer = setTimeout(() => {
+        handleAction("restart");
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Listen for gateway output
   useEffect(() => {
@@ -69,22 +98,6 @@ export function Monitor() {
   useEffect(() => {
     logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [logs]);
-
-  const handleAction = async (action: "start" | "stop" | "restart") => {
-    setLoading(action);
-    try {
-      if (action === "start") await start();
-      else if (action === "stop") await stop();
-      else await restart();
-      toast.success(
-        `Gateway ${action === "start" ? "started" : action === "stop" ? "stopped" : "restarted"}`
-      );
-    } catch (e) {
-      toast.error(`Failed: ${e}`);
-    } finally {
-      setLoading(null);
-    }
-  };
 
   return (
     <div className="space-y-6">
