@@ -37,6 +37,8 @@ export interface ChannelField {
 export type SandboxMode = "off" | "non-main" | "all";
 export type SandboxScope = "session" | "agent" | "shared";
 export type WorkspaceAccess = "none" | "ro" | "rw";
+export type SandboxBackend = "docker" | "ssh" | "openshell";
+export type DockerNetwork = "none" | "bridge" | "host";
 export type DmPolicy = "pairing" | "allowlist" | "open" | "disabled";
 
 export interface WizardState {
@@ -51,6 +53,10 @@ export interface WizardState {
   sandboxScope: SandboxScope;
   workspaceAccess: WorkspaceAccess;
   workspacePath: string;
+  sandboxBackend: SandboxBackend;
+  dockerImage: string;
+  dockerNetwork: DockerNetwork;
+  dockerBinds: string[];
   selectedChannels: string[];
   channelConfigs: Record<string, Record<string, string>>;
   dmPolicies: Record<string, DmPolicy>;
@@ -76,6 +82,11 @@ export interface WizardState {
   setSandboxScope: (scope: SandboxScope) => void;
   setWorkspaceAccess: (access: WorkspaceAccess) => void;
   setWorkspacePath: (path: string) => void;
+  setSandboxBackend: (backend: SandboxBackend) => void;
+  setDockerImage: (image: string) => void;
+  setDockerNetwork: (network: DockerNetwork) => void;
+  addDockerBind: (bind: string) => void;
+  removeDockerBind: (index: number) => void;
   toggleChannel: (channelId: string) => void;
   setChannelField: (channelId: string, field: string, value: string) => void;
   setDmPolicy: (channelId: string, policy: DmPolicy) => void;
@@ -485,6 +496,10 @@ const initialState = {
   sandboxScope: "session" as SandboxScope,
   workspaceAccess: "none" as WorkspaceAccess,
   workspacePath: "",
+  sandboxBackend: "docker" as SandboxBackend,
+  dockerImage: "openclaw-sandbox:bookworm-slim",
+  dockerNetwork: "none" as DockerNetwork,
+  dockerBinds: [] as string[],
   selectedChannels: [] as string[],
   channelConfigs: {} as Record<string, Record<string, string>>,
   dmPolicies: {} as Record<string, DmPolicy>,
@@ -526,6 +541,11 @@ export const useWizardStore = create<WizardState>((set, get) => ({
   setSandboxScope: (scope) => set({ sandboxScope: scope }),
   setWorkspaceAccess: (access) => set({ workspaceAccess: access }),
   setWorkspacePath: (path) => set({ workspacePath: path }),
+  setSandboxBackend: (backend) => set({ sandboxBackend: backend }),
+  setDockerImage: (image) => set({ dockerImage: image }),
+  setDockerNetwork: (network) => set({ dockerNetwork: network }),
+  addDockerBind: (bind) => set((s) => ({ dockerBinds: [...s.dockerBinds, bind] })),
+  removeDockerBind: (index) => set((s) => ({ dockerBinds: s.dockerBinds.filter((_, i) => i !== index) })),
   toggleChannel: (channelId) =>
     set((state) => {
       const isSelected = state.selectedChannels.includes(channelId);
@@ -644,11 +664,35 @@ export const useWizardStore = create<WizardState>((set, get) => ({
       }
     }
 
+    // Build sandbox config
+    const sandboxConfig: Record<string, unknown> = {
+      mode: state.sandboxMode,
+      scope: state.sandboxScope,
+      workspaceAccess: state.workspaceAccess,
+      backend: state.sandboxBackend,
+    };
+    // Backend-specific settings
+    if (state.sandboxBackend === "docker") {
+      sandboxConfig.docker = {
+        image: state.dockerImage || "openclaw-sandbox:bookworm-slim",
+        network: state.dockerNetwork || "none",
+        binds: state.dockerBinds,
+        readOnlyRoot: true,
+        user: "node",
+      };
+    } else if (state.sandboxBackend === "ssh") {
+      sandboxConfig.ssh = {
+        target: "",
+        workspaceRoot: state.workspacePath || "~/.openclaw/workspace",
+      };
+    }
+
     config.agents = {
       defaults: {
         model: { primary: effectiveModel || "anthropic/claude-sonnet-4-6" },
         models: modelsAllowlist,
         workspace: state.workspacePath || "~/.openclaw/workspace",
+        sandbox: sandboxConfig,
       },
     };
 
