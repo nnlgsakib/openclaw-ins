@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Card,
   CardContent,
@@ -20,7 +20,6 @@ import {
   Download,
   RefreshCw,
   CheckCircle2,
-  AlertTriangle,
   Settings as SettingsIcon,
   Info,
   Trash2,
@@ -68,15 +67,12 @@ export function Settings() {
   const [openclawProgress, setOpenclawProgress] = useState<UpdateProgress | null>(null);
 
   // Listen for OpenClaw update progress events
-  const prevIsPending = useRef(updateMutation.isPending);
   useEffect(() => {
-    const wasPending = prevIsPending.current;
-    prevIsPending.current = updateMutation.isPending;
-    if (!updateMutation.isPending && wasPending) {
+    if (!updateMutation.isPending) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Clear stale progress when subscription ends
       setOpenclawProgress(null);
       return;
     }
-    if (!updateMutation.isPending) return;
     const unlisten = listen<UpdateProgress>("install-progress", (event) => {
       setOpenclawProgress(event.payload);
     });

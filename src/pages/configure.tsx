@@ -22,7 +22,6 @@ import {
   Settings,
   Shield,
   Wrench,
-  Users,
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
