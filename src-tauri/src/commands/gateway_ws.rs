@@ -13,6 +13,71 @@ use crate::state::AppState;
 #[allow(dead_code)]
 type WsSink = futures::stream::SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>;
 
+/// Inspect a gateway JSON response for provider error indicators (502, NATS, no-responders).
+/// Returns `Some(message)` with a user-friendly error description if the response
+/// matches known provider failure patterns.
+fn classify_gateway_response(response: &serde_json::Value) -> Option<String> {
+    let text = response.to_string().to_lowercase();
+
+    // Check for NATS no-responders or general NATS errors
+    if text.contains("no responders") || text.contains("nats") {
+        return Some(
+            "Inference provider is not responding. The configured model provider may be down or misconfigured."
+                .to_string(),
+        );
+    }
+
+    // Check for HTTP 502/503 in error objects
+    if let Some(status) = response
+        .get("error")
+        .and_then(|e| e.get("http_status"))
+        .and_then(|s| s.as_u64())
+    {
+        if status == 502 || status == 503 {
+            return Some(format!(
+                "Provider returned HTTP {status}. Model provider may be unavailable."
+            ));
+        }
+    }
+
+    // Check nested error patterns in /error/message
+    if let Some(err_msg) = response
+        .pointer("/error/message")
+        .and_then(|v| v.as_str())
+    {
+        let msg_lower = err_msg.to_lowercase();
+        if msg_lower.contains("no responders")
+            || msg_lower.contains("nats")
+            || msg_lower.contains("provider")
+        {
+            return Some(format!("Provider error: {err_msg}"));
+        }
+    }
+
+    // Check for server_error type with provider context
+    if let Some(err_type) = response
+        .pointer("/error/type")
+        .and_then(|v| v.as_str())
+    {
+        if err_type == "server_error" {
+            if let Some(msg) = response
+                .pointer("/error/message")
+                .and_then(|v| v.as_str())
+            {
+                let msg_lower = msg.to_lowercase();
+                if msg_lower.contains("provider")
+                    || msg_lower.contains("upstream")
+                    || msg_lower.contains("backend")
+                {
+                    return Some(format!("Provider error: {msg}"));
+                }
+            }
+        }
+    }
+
+    None
+}
+
 /// Response from a Gateway WebSocket call.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -144,7 +209,13 @@ pub async fn gateway_ws_call(
 
     // Wait for response with timeout
     match tokio::time::timeout(std::time::Duration::from_secs(10), rx).await {
-        Ok(Ok(result)) => Ok(result),
+        Ok(Ok(result)) => {
+            // Check for provider error patterns before returning as success
+            if let Some(provider_msg) = classify_gateway_response(&result) {
+                return Err(format!("PROVIDER_ERROR: {provider_msg}"));
+            }
+            Ok(result)
+        }
         Ok(Err(e)) => Err(format!("Response channel error: {e}")),
         Err(_) => Err("Gateway WebSocket call timed out after 10s".to_string()),
     }
