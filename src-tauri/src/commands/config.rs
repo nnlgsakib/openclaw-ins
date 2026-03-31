@@ -145,6 +145,92 @@ pub async fn validate_config(
                         }
                     }
                 }
+
+                // Validate sandbox backend
+                if let Some(backend) = sandbox.get("backend") {
+                    if let Some(backend_str) = backend.as_str() {
+                        let valid_backends = ["docker", "ssh", "openshell"];
+                        if !valid_backends.contains(&backend_str) {
+                            errors.push(ValidationError {
+                                field: "agents.defaults.sandbox.backend".into(),
+                                message: format!(
+                                    "Invalid sandbox backend '{backend_str}'. Valid: {}",
+                                    valid_backends.join(", ")
+                                ),
+                            });
+                        }
+                        // Backend-specific validation
+                        if backend_str == "ssh" {
+                            if let Some(ssh) = sandbox.get("ssh") {
+                                if ssh.get("target").is_none_or(|t| {
+                                    t.as_str().is_none_or(|s| s.trim().is_empty())
+                                }) {
+                                    errors.push(ValidationError {
+                                        field: "agents.defaults.sandbox.ssh.target".into(),
+                                        message: "SSH backend requires a target host (e.g., 'user@host')"
+                                            .into(),
+                                    });
+                                }
+                            } else {
+                                errors.push(ValidationError {
+                                    field: "agents.defaults.sandbox.ssh".into(),
+                                    message: "SSH backend requires ssh configuration with target"
+                                        .into(),
+                                });
+                            }
+                        }
+                    }
+                }
+
+                // Validate sandbox scope
+                if let Some(scope) = sandbox.get("scope") {
+                    if let Some(scope_str) = scope.as_str() {
+                        let valid_scopes = ["session", "agent", "shared"];
+                        if !valid_scopes.contains(&scope_str) {
+                            errors.push(ValidationError {
+                                field: "agents.defaults.sandbox.scope".into(),
+                                message: format!(
+                                    "Invalid sandbox scope '{scope_str}'. Valid: {}",
+                                    valid_scopes.join(", ")
+                                ),
+                            });
+                        }
+                    }
+                }
+
+                // Validate workspace access
+                if let Some(access) = sandbox.get("workspaceAccess") {
+                    if let Some(access_str) = access.as_str() {
+                        let valid_access = ["none", "ro", "rw"];
+                        if !valid_access.contains(&access_str) {
+                            errors.push(ValidationError {
+                                field: "agents.defaults.sandbox.workspaceAccess".into(),
+                                message: format!(
+                                    "Invalid workspace access '{access_str}'. Valid: {}",
+                                    valid_access.join(", ")
+                                ),
+                            });
+                        }
+                    }
+                }
+
+                // Validate Docker network if present
+                if let Some(docker) = sandbox.get("docker") {
+                    if let Some(network) = docker.get("network") {
+                        if let Some(net_str) = network.as_str() {
+                            let valid_networks = ["none", "bridge", "host"];
+                            if !valid_networks.contains(&net_str) {
+                                errors.push(ValidationError {
+                                    field: "agents.defaults.sandbox.docker.network".into(),
+                                    message: format!(
+                                        "Invalid Docker network '{net_str}'. Valid: {}",
+                                        valid_networks.join(", ")
+                                    ),
+                                });
+                            }
+                        }
+                    }
+                }
             }
         }
     }
