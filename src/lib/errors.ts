@@ -100,6 +100,13 @@ export function formatError(error: unknown): AppError {
     }
   }
 
+  // Tauri serializes Rust Err(Enum) as { variantName: { fields... } }
+  // e.g. { installationFailed: { reason: "...", suggestion: "..." } }
+  if (typeof error === "object" && error !== null) {
+    const tauriErr = extractTauriErrorFields(error)
+    if (tauriErr) return tauriErr
+  }
+
   // String error
   if (typeof error === "string") {
     const matched = matchErrorPattern(error)
@@ -150,4 +157,46 @@ function matchErrorPattern(message: string): AppError | null {
   if (lower.includes("config") || lower.includes("yaml") || lower.includes("json"))
     return errorMessages.config_error
   return null
+}
+
+/**
+ * Extract message + suggestion from Tauri's serialized Rust error format.
+ *
+ * Tauri returns Rust `Err(AppError::InstallationFailed{reason, suggestion})` as:
+ *   `{ installationFailed: { reason: "...", suggestion: "..." } }`
+ *
+ * This function unwraps the single-key variant object and returns an AppError.
+ */
+function extractTauriErrorFields(error: object): AppError | null {
+  const keys = Object.keys(error)
+  if (keys.length !== 1) return null
+
+  const inner = (error as Record<string, unknown>)[keys[0]]
+  if (!inner || typeof inner !== "object") return null
+
+  const fields = inner as Record<string, unknown>
+
+  // Tauri error variants use different field names:
+  //   InstallationFailed { reason, suggestion }
+  //   Internal { message, suggestion }
+  //   ConfigError { message, suggestion }
+  //   DockerDaemonNotRunning { suggestion }
+  //   etc.
+  const message =
+    (typeof fields.reason === "string" && fields.reason) ||
+    (typeof fields.message === "string" && fields.message) ||
+    (typeof fields.suggestion === "string" && fields.suggestion) ||
+    null
+
+  const suggestion =
+    (typeof fields.suggestion === "string" && fields.suggestion) ||
+    errorMessages.unknown.suggestion
+
+  if (!message) return null
+
+  // Try to match against known error patterns for better UX
+  const matched = matchErrorPattern(message)
+  if (matched) return matched
+
+  return { message, suggestion }
 }
