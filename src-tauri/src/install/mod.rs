@@ -14,3 +14,19 @@ pub struct InstallResult {
     pub gateway_url: String,
     pub gateway_token: Option<String>,
 }
+
+/// Sandbox configuration passed from the wizard during installation.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SandboxInstallConfig {
+    /// Sandbox mode: "off", "non-main", "all"
+    pub mode: String,
+    /// Backend: "docker", "ssh", "openshell"
+    pub backend: String,
+    /// Docker image name (default: "openclaw-sandbox:bookworm-slim")
+    pub docker_image: Option<String>,
+    /// Docker network mode: "none", "bridge", "host"
+    pub docker_network: Option<String>,
+    /// Docker bind mounts
+    pub docker_binds: Option<Vec<String>>,
+}

@@ -3,7 +3,7 @@ use crate::docker::check::check_docker_health_internal;
 use crate::error::AppError;
 use crate::install::progress::emit_progress;
 use crate::install::verify::verify_gateway_health;
-use crate::install::InstallResult;
+use crate::install::{InstallResult, SandboxInstallConfig};
 use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncBufReadExt, BufReader};
 
@@ -51,6 +51,7 @@ pub async fn docker_install(
     app_handle: &tauri::AppHandle,
     install_dir: Option<&str>,
     workspace_path: Option<&str>,
+    sandbox_config: Option<&SandboxInstallConfig>,
 ) -> Result<InstallResult, AppError> {
     // Step 1: Verify Docker is available
     emit_progress(
@@ -404,6 +405,120 @@ pub async fn docker_install(
     emit_progress(app_handle, "verifying", 90, "Verifying installation...");
     verify_gateway_health(30).await?;
 
+    // Step 7: Sandbox setup (if enabled and Docker backend)
+    if let Some(sandbox) = sandbox_config {
+        if sandbox.mode != "off" && sandbox.backend == "docker" {
+            let image = sandbox
+                .docker_image
+                .as_deref()
+                .unwrap_or("openclaw-sandbox:bookworm-slim");
+
+            emit_progress(
+                app_handle,
+                "sandbox_setup",
+                92,
+                "Building sandbox Docker image...",
+            );
+
+            // Check if image already exists
+            let check = silent_cmd("docker")
+                .args(["image", "inspect", image])
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .status()
+                .await;
+
+            let needs_build = match check {
+                Ok(status) => !status.success(),
+                Err(_) => true,
+            };
+
+            if needs_build {
+                let sandbox_script = repo_dir.join("scripts").join("sandbox-setup.sh");
+
+                if sandbox_script.exists() {
+                    // Run sandbox-setup.sh and stream output
+                    emit_progress(
+                        app_handle,
+                        "sandbox_setup",
+                        93,
+                        "Running sandbox setup script...",
+                    );
+
+                    let mut cmd = silent_cmd("bash");
+                    cmd.arg(&sandbox_script);
+                    cmd.current_dir(&repo_dir);
+                    cmd.stdout(std::process::Stdio::piped());
+                    cmd.stderr(std::process::Stdio::piped());
+
+                    match cmd.spawn() {
+                        Ok(child) => {
+                            stream_command_output(app_handle, child, "sandbox-setup-progress")
+                                .await;
+                            emit_progress(
+                                app_handle,
+                                "sandbox_setup",
+                                98,
+                                "Sandbox image ready.",
+                            );
+                        }
+                        Err(e) => {
+                            // Graceful degradation — don't fail the install
+                            emit_progress(
+                                app_handle,
+                                "sandbox_setup",
+                                98,
+                                &format!("Sandbox setup skipped: {e}"),
+                            );
+                        }
+                    }
+                } else {
+                    // No script found — try direct docker build
+                    emit_progress(
+                        app_handle,
+                        "sandbox_setup",
+                        93,
+                        "Building sandbox image directly...",
+                    );
+
+                    let mut cmd = silent_cmd("docker");
+                    cmd.args(["build", "-t", image, "-f", "Dockerfile.sandbox", "."]);
+                    cmd.current_dir(&repo_dir);
+                    cmd.stdout(std::process::Stdio::piped());
+                    cmd.stderr(std::process::Stdio::piped());
+
+                    match cmd.spawn() {
+                        Ok(child) => {
+                            stream_command_output(app_handle, child, "sandbox-setup-progress")
+                                .await;
+                            emit_progress(
+                                app_handle,
+                                "sandbox_setup",
+                                98,
+                                "Sandbox image ready.",
+                            );
+                        }
+                        Err(e) => {
+                            emit_progress(
+                                app_handle,
+                                "sandbox_setup",
+                                98,
+                                &format!("Sandbox image build skipped: {e}"),
+                            );
+                        }
+                    }
+                }
+            } else {
+                emit_progress(
+                    app_handle,
+                    "sandbox_setup",
+                    98,
+                    "Sandbox image already exists.",
+                );
+            }
+        }
+    }
+
     emit_progress(
         app_handle,
         "complete",
@@ -444,6 +559,70 @@ fn emit_log_lines(app_handle: &tauri::AppHandle, output: &[u8]) {
             emit_log(app_handle, trimmed);
         }
     }
+}
+
+/// Stream stdout and stderr from a spawned child process as log events.
+///
+/// Reads both stdout and stderr concurrently, emitting each line to
+/// the given Tauri event channel. Waits for the child process to exit.
+async fn stream_command_output(
+    app_handle: &tauri::AppHandle,
+    mut child: tokio::process::Child,
+    event_channel: &str,
+) {
+    let stdout = child.stdout.take();
+    let stderr = child.stderr.take();
+
+    let handle_out = app_handle.clone();
+    let channel_out = event_channel.to_string();
+    let stdout_task = async move {
+        if let Some(stdout) = stdout {
+            let mut reader = BufReader::new(stdout).lines();
+            while let Ok(Some(line)) = reader.next_line().await {
+                let trimmed = line.trim();
+                if !trimmed.is_empty() {
+                    let _ = tauri::Emitter::emit(
+                        &handle_out,
+                        &channel_out,
+                        DockerLogEvent {
+                            output: trimmed.to_string(),
+                            timestamp: std::time::SystemTime::now()
+                                .duration_since(std::time::UNIX_EPOCH)
+                                .unwrap_or_default()
+                                .as_millis() as u64,
+                        },
+                    );
+                }
+            }
+        }
+    };
+
+    let handle_err = app_handle.clone();
+    let channel_err = event_channel.to_string();
+    let stderr_task = async move {
+        if let Some(stderr) = stderr {
+            let mut reader = BufReader::new(stderr).lines();
+            while let Ok(Some(line)) = reader.next_line().await {
+                let trimmed = line.trim();
+                if !trimmed.is_empty() {
+                    let _ = tauri::Emitter::emit(
+                        &handle_err,
+                        &channel_err,
+                        DockerLogEvent {
+                            output: trimmed.to_string(),
+                            timestamp: std::time::SystemTime::now()
+                                .duration_since(std::time::UNIX_EPOCH)
+                                .unwrap_or_default()
+                                .as_millis() as u64,
+                        },
+                    );
+                }
+            }
+        }
+    };
+
+    tokio::join!(stdout_task, stderr_task);
+    let _ = child.wait().await;
 }
 
 /// Generate a cryptographically random gateway token (64 hex chars = 256 bits).

@@ -4,7 +4,7 @@ use super::silent::silent_cmd;
 use crate::error::AppError;
 use crate::install::docker_install::docker_install;
 use crate::install::native_install::native_install;
-use crate::install::InstallResult;
+use crate::install::{InstallResult, SandboxInstallConfig};
 
 /// Installation method selected by the user.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -21,6 +21,8 @@ pub struct InstallRequest {
     pub method: InstallMethod,
     pub workspace_path: Option<String>,
     pub install_dir: Option<String>,
+    /// Sandbox config from wizard. If present and not "off", sandbox setup runs after install.
+    pub sandbox_config: Option<SandboxInstallConfig>,
 }
 
 /// Install OpenClaw via the selected method (Docker or native).
@@ -38,6 +40,7 @@ pub async fn install_openclaw(
                 &app_handle,
                 request.install_dir.as_deref(),
                 request.workspace_path.as_deref(),
+                request.sandbox_config.as_ref(),
             )
             .await
         }
@@ -124,5 +127,25 @@ mod tests {
         assert!(matches!(req.method, InstallMethod::Native));
         assert_eq!(req.workspace_path, None);
         assert_eq!(req.install_dir, None);
+        assert_eq!(req.sandbox_config, None);
+    }
+
+    #[test]
+    fn install_request_deserializes_with_sandbox_config() {
+        let json = r#"{"method":"docker","sandboxConfig":{"mode":"non-main","backend":"docker","dockerImage":"openclaw-sandbox:bookworm-slim","dockerNetwork":"none","dockerBinds":["/tmp:/tmp"]}}"#;
+        let req: InstallRequest = serde_json::from_str(json).unwrap();
+        assert!(matches!(req.method, InstallMethod::Docker));
+        let sandbox = req.sandbox_config.unwrap();
+        assert_eq!(sandbox.mode, "non-main");
+        assert_eq!(sandbox.backend, "docker");
+        assert_eq!(
+            sandbox.docker_image,
+            Some("openclaw-sandbox:bookworm-slim".into())
+        );
+        assert_eq!(sandbox.docker_network, Some("none".into()));
+        assert_eq!(
+            sandbox.docker_binds,
+            Some(vec!["/tmp:/tmp".into()])
+        );
     }
 }
