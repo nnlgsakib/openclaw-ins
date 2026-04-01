@@ -9,31 +9,18 @@ import {
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
 import { useUninstallOpenClaw } from "@/hooks/use-uninstall";
 import { useAppUpdate } from "@/hooks/use-app-update";
-import { useOpenClawUpdateCheck, useUpdateOpenClaw } from "@/hooks/use-update";
-import { formatError } from "@/lib/errors";
 import { toast } from "sonner";
 import {
   Loader2,
   Download,
   RefreshCw,
-  CheckCircle2,
   Settings as SettingsIcon,
   Info,
   Trash2,
-  AlertCircle,
 } from "lucide-react";
 import { getName, getVersion } from "@tauri-apps/api/app";
-import { listen } from "@tauri-apps/api/event";
-import { cn } from "@/lib/utils";
-
-interface UpdateProgress {
-  step: string;
-  percent: number;
-  message: string;
-}
 
 export function Settings() {
   const [preserveConfig, setPreserveConfig] = useState(true);
@@ -55,53 +42,6 @@ export function Settings() {
     getName().then(setAppName).catch(() => {});
     getVersion().then(setAppVersion).catch(() => {});
   }, []);
-
-  // OpenClaw binary/image update state
-  const {
-    data: updateCheck,
-    isLoading: isLoadingUpdate,
-    refetch: refetchUpdate,
-    isRefetching: isRefetchingUpdate,
-  } = useOpenClawUpdateCheck();
-  const updateMutation = useUpdateOpenClaw();
-  const [openclawProgress, setOpenclawProgress] = useState<UpdateProgress | null>(null);
-
-  // Listen for OpenClaw update progress events
-  useEffect(() => {
-    if (!updateMutation.isPending) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- Clear stale progress when subscription ends
-      setOpenclawProgress(null);
-      return;
-    }
-    const unlisten = listen<UpdateProgress>("install-progress", (event) => {
-      setOpenclawProgress(event.payload);
-    });
-    return () => {
-      unlisten.then((fn) => fn());
-    };
-  }, [updateMutation.isPending]);
-
-  // Show toast on OpenClaw update success/error
-  useEffect(() => {
-    if (updateMutation.isSuccess) {
-      toast.success("OpenClaw updated successfully!", {
-        description: updateMutation.data?.newVersion
-          ? `Now running version ${updateMutation.data.newVersion}`
-          : "Update complete",
-      });
-      refetchUpdate();
-    }
-    if (updateMutation.isError) {
-      const err = formatError(updateMutation.error);
-      toast.error(err.message, { description: err.suggestion });
-    }
-  }, [
-    updateMutation.isSuccess,
-    updateMutation.isError,
-    updateMutation.data,
-    updateMutation.error,
-    refetchUpdate,
-  ]);
 
   function handleUninstall() {
     const confirmed = window.confirm(
@@ -141,122 +81,8 @@ export function Settings() {
         </p>
       </div>
 
-      {/* Update cards */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* OpenClaw Update */}
-        <Card>
-          <CardHeader className="pb-4">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10">
-                <Download className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <CardTitle className="text-lg">OpenClaw Update</CardTitle>
-                <CardDescription>
-                  Check for and install updates to your OpenClaw installation
-                </CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Version info */}
-            <div className="space-y-3">
-              <VersionRow
-                label="Current"
-                value={updateCheck?.currentVersion ?? "\u2014"}
-              />
-              <VersionRow
-                label="Latest"
-                value={updateCheck?.latestVersion ?? "\u2014"}
-                highlight
-              />
-              {updateCheck?.installMethod && updateCheck.installMethod !== "unknown" && (
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Install method</span>
-                  <Badge variant="secondary" className="text-xs">
-                    {updateCheck.installMethod}
-                  </Badge>
-                </div>
-              )}
-            </div>
-
-            {/* Status */}
-            {!isLoadingUpdate && updateCheck && (
-              <div
-                className={cn(
-                  "flex items-center gap-2 p-3 rounded-lg",
-                  updateCheck.updateAvailable
-                    ? "bg-primary/5 border border-primary/20"
-                    : "bg-success-muted/30 border border-success/20"
-                )}
-              >
-                {updateCheck.updateAvailable ? (
-                  <>
-                    <AlertCircle className="h-4 w-4 text-primary" />
-                    <span className="text-sm text-foreground">Update available</span>
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="h-4 w-4 text-success" />
-                    <span className="text-sm text-success">Up to date</span>
-                  </>
-                )}
-              </div>
-            )}
-
-            {/* Progress bar */}
-            {updateMutation.isPending && openclawProgress && (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">{openclawProgress.message}</span>
-                  <span className="font-medium">{openclawProgress.percent}%</span>
-                </div>
-                <Progress value={openclawProgress.percent} />
-              </div>
-            )}
-
-            {/* Actions */}
-            <div className="flex gap-2 pt-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => refetchUpdate()}
-                disabled={isRefetchingUpdate || updateMutation.isPending}
-                className="flex-1"
-              >
-                <RefreshCw
-                  className={cn("mr-2 h-4 w-4", isRefetchingUpdate && "animate-spin")}
-                />
-                Check
-              </Button>
-
-              {updateCheck?.updateAvailable && (
-                <Button
-                  size="sm"
-                  onClick={() => updateMutation.mutate()}
-                  disabled={updateMutation.isPending || updateCheck.installMethod === "unknown"}
-                  className="flex-1"
-                >
-                  {updateMutation.isPending ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Download className="mr-2 h-4 w-4" />
-                  )}
-                  Update
-                </Button>
-              )}
-            </div>
-
-            {updateCheck?.installMethod === "unknown" && !isLoadingUpdate && (
-              <p className="text-xs text-muted-foreground">
-                OpenClaw is not installed. Visit the Install page to get started.
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Desktop App Update */}
-        <Card>
+      {/* Desktop App Update */}
+      <Card>
           <CardHeader className="pb-4">
             <div className="flex items-center gap-3">
               <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-info/10">
@@ -336,7 +162,6 @@ export function Settings() {
             </div>
           </CardContent>
         </Card>
-      </div>
 
       {/* About card */}
       <Card>
@@ -411,30 +236,6 @@ export function Settings() {
           </Button>
         </CardContent>
       </Card>
-    </div>
-  );
-}
-
-function VersionRow({
-  label,
-  value,
-  highlight,
-}: {
-  label: string;
-  value: string;
-  highlight?: boolean;
-}) {
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <span
-        className={cn(
-          "text-sm font-mono",
-          highlight ? "font-medium text-foreground" : "text-muted-foreground"
-        )}
-      >
-        {value}
-      </span>
     </div>
   );
 }

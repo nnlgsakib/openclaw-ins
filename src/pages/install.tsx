@@ -13,6 +13,7 @@ import {
   ChevronUp,
   Download,
   Sparkles,
+  RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,6 +22,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { useInstallStore, type PrerequisitesInfo } from "@/stores/use-install-store";
 import { cn } from "@/lib/utils";
+import { useOpenClawUpdateCheck } from "@/hooks/use-update";
 
 export function Install() {
   const navigate = useNavigate();
@@ -39,6 +41,12 @@ export function Install() {
   const logsEndRef = useRef<HTMLDivElement>(null);
   const hasCheckedPrereqs = useRef(false);
   const [showLogs, setShowLogs] = useState(false);
+
+  // Update check for OpenClaw (enabled only when installed)
+  const {
+    data: updateCheck,
+    refetch: refetchUpdate,
+  } = useOpenClawUpdateCheck();
 
   // Check prerequisites only once
   useEffect(() => {
@@ -94,6 +102,10 @@ export function Install() {
     try {
       const result = await invoke<PrerequisitesInfo>("check_prerequisites");
       setPrereqs(result);
+      // Refetch update check after prereqs (will show update availability if OpenClaw is installed)
+      if (result.openclaw.installed) {
+        refetchUpdate();
+      }
     } catch (e) {
       toast.error(`Failed to check prerequisites: ${e}`);
       setLoading(false);
@@ -108,6 +120,19 @@ export function Install() {
       await checkPrereqs();
     } catch (e) {
       toast.error(`Installation failed: ${e}`);
+    } finally {
+      setInstalling(false);
+    }
+  };
+
+  const handleUpdateOpenClaw = async () => {
+    setInstalling(true);
+    try {
+      const version = await invoke<string>("reinstall_openclaw");
+      toast.success(`OpenClaw updated to ${version}`);
+      await checkPrereqs();
+    } catch (e) {
+      toast.error(`Update failed: ${e}`);
     } finally {
       setInstalling(false);
     }
@@ -224,7 +249,9 @@ export function Install() {
                   version={prereqs?.openclaw.version ?? undefined}
                   detail={
                     prereqs?.openclaw.installed
-                      ? "Installed"
+                      ? updateCheck?.updateAvailable
+                        ? `Update available: ${prereqs.openclaw.version} → ${updateCheck.latestVersion}`
+                        : "Installed (latest)"
                       : "Not installed"
                   }
                   action={
@@ -234,13 +261,22 @@ export function Install() {
                         Working...
                       </Button>
                     ) : prereqs?.openclaw.installed ? (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={handleReinstallOpenClaw}
-                      >
-                        Reinstall
-                      </Button>
+                      <div className="flex gap-2">
+                        {updateCheck?.updateAvailable && (
+                          <Button size="sm" onClick={handleUpdateOpenClaw}>
+                            <Download className="mr-2 h-4 w-4" />
+                            Update
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={handleReinstallOpenClaw}
+                        >
+                          <RefreshCw className="mr-2 h-4 w-4" />
+                          Reinstall
+                        </Button>
+                      </div>
                     ) : (
                       <Button size="sm" onClick={handleInstallOpenClaw}>
                         <Download className="mr-2 h-4 w-4" />
