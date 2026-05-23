@@ -24,7 +24,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tauri-plugin-os = "2.3.2"
 tauri-plugin-shell = "2.3.5"
-tauri-plugin-store = "2.4.2"
+tauri-plugin-store = "2.4.3"
 tauri-plugin-notification = "2.3.3"
 tauri-plugin-dialog = "2"
 tauri-plugin-updater = "2"
@@ -32,7 +32,7 @@ tauri-plugin-process = "2.3"
 thiserror = "2.0.18"
 bollard = "0.20"
 anyhow = "1.0.102"
-tokio = { version = "1.50.0", features = ["full"] }
+tokio = { version = "1.52.3", features = ["full"] }
 sysinfo = "0.38"
 reqwest = { version = "0.13", features = ["json"] }
 futures-util = "0.3"
